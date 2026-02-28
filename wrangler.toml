@@ -1,0 +1,11 @@
+name = "eddie-plus"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "eddie-plus-db"
+database_id = "6555cd30-a7bf-4e9c-9a33-ab5754927712"
+
+[site]
+bucket = "./public"

@@ -1,0 +1,66 @@
+{
+  "type": "show",
+  "title": "My Show Title",
+  "slug": "my-show-title",
+  "status": "published",
+
+  "description": "Short description for cards and hero.",
+  "long_description": "Full long-form description for the detail page.",
+  "tagline": "Optional tagline.",
+
+  "logo_url": "",
+  "poster_url": "https://your-cdn.com/posters/my-show.jpg",
+  "backdrop_url": "https://your-cdn.com/backdrops/my-show-wide.jpg",
+  "trailer_url": "https://your-cdn.com/videos/my-show-trailer.mp4",
+  "teaser_url": "",
+  "video_url": "",
+
+  "release_year": 2024,
+  "release_date": "2024-01-15",
+  "scheduled_release": "",
+  "duration": 0,
+  "rating": "8.8",
+  "age_rating": "TV-MA",
+  "country": "USA",
+  "language": "en",
+
+  "genres": ["Drama", "Mystery"],
+  "cast_members": ["Lead Actor", "Supporting Actor"],
+  "crew": ["Showrunner Name"],
+  "tags": ["binge-worthy", "mystery", "drama"],
+
+  "season_count": 2,
+  "episode_count": 16,
+
+  "is_new": true,
+  "is_4k": true,
+  "is_hdr": false,
+  "is_dolby": false,
+  "featured": false,
+  "featured_order": 0,
+
+  "badges": [],
+
+  "custom_font": "",
+  "custom_color": "",
+  "play_icon": "",
+  "progress_bar_style": "default",
+
+  "custom_tabs": [],
+
+  "_seasons_note": "Add seasons and episodes via the Admin Panel under Episodes tab, or use the episodes template.",
+  "_seasons": [
+    {
+      "season_number": 1,
+      "title": "Season 1",
+      "description": "The first season.",
+      "release_year": 2024
+    },
+    {
+      "season_number": 2,
+      "title": "Season 2",
+      "description": "The second season.",
+      "release_year": 2025
+    }
+  ]
+}

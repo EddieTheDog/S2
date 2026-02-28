@@ -1,0 +1,47 @@
+{
+  "type": "movie",
+  "title": "My Movie Title",
+  "slug": "my-movie-title",
+  "status": "published",
+
+  "description": "A short, punchy description shown on cards and hero sections. Keep it under 200 characters.",
+  "long_description": "A longer, detailed description shown on the movie's dedicated page. Tell the full story of what makes this film worth watching.",
+  "tagline": "An optional one-liner tagline. 'In space, no one can hear you scream.'",
+
+  "logo_url": "",
+  "poster_url": "https://your-cdn.com/posters/my-movie.jpg",
+  "backdrop_url": "https://your-cdn.com/backdrops/my-movie-wide.jpg",
+  "trailer_url": "https://your-cdn.com/videos/my-movie-trailer.mp4",
+  "teaser_url": "",
+  "video_url": "https://your-cdn.com/videos/my-movie-full.mp4",
+
+  "release_year": 2024,
+  "release_date": "2024-12-01",
+  "scheduled_release": "",
+  "duration": 128,
+  "rating": "8.2",
+  "age_rating": "PG-13",
+  "country": "USA",
+  "language": "en",
+
+  "genres": ["Action", "Sci-Fi", "Thriller"],
+  "cast_members": ["Actor Name", "Another Actor", "Third Person"],
+  "crew": ["Director Name"],
+  "tags": ["sci-fi", "space", "epic", "must-watch"],
+
+  "is_new": true,
+  "is_4k": true,
+  "is_hdr": false,
+  "is_dolby": false,
+  "featured": false,
+  "featured_order": 0,
+
+  "badges": [],
+
+  "custom_font": "",
+  "custom_color": "",
+  "play_icon": "",
+  "progress_bar_style": "default",
+
+  "custom_tabs": []
+}
