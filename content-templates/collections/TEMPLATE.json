@@ -1,0 +1,17 @@
+{
+  "title": "My Collection",
+  "slug": "my-collection",
+  "description": "A curated collection of great content.",
+  "poster_url": "https://your-cdn.com/collections/my-collection.jpg",
+  "backdrop_url": "https://your-cdn.com/collections/my-collection-wide.jpg",
+  "display_order": 1,
+  "status": "published",
+
+  "content_ids": [
+    "paste-content-id-here",
+    "paste-another-content-id",
+    "and-another"
+  ],
+
+  "_note": "content_ids are the UUIDs assigned when content is created. Find them in the Admin Panel content table."
+}

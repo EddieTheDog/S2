@@ -1,0 +1,2721 @@
+// Eddie+ Streaming Platform — Cloudflare Worker (API + Frontend combined)
+// Database: D1 (eddie-plus-db: 6555cd30-a7bf-4e9c-9a33-ab5754927712)
+
+const HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eddie+</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,400&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #111118;
+  --surface2: #1a1a24;
+  --surface3: #22222f;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0f0f8;
+  --text-muted: #8888aa;
+  --accent: #e8263a;
+  --accent2: #ff6b35;
+  --gold: #f5c842;
+  --gradient: linear-gradient(135deg, #e8263a, #c4173c);
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+  --font-mono: 'Space Mono', monospace;
+  --nav-h: 68px;
+  --radius: 8px;
+  --card-w: 220px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+/* LOADING */
+#app-loader {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999; transition: opacity 0.5s var(--ease);
+}
+#app-loader .logo-anim {
+  font-family: var(--font-display); font-size: 72px; color: var(--accent);
+  letter-spacing: 4px;
+  animation: pulseGlow 1.5s ease-in-out infinite;
+}
+@keyframes pulseGlow {
+  0%, 100% { text-shadow: 0 0 20px rgba(232,38,58,0.4); }
+  50% { text-shadow: 0 0 60px rgba(232,38,58,0.9), 0 0 120px rgba(232,38,58,0.3); }
+}
+.loader-bar {
+  width: 200px; height: 2px; background: var(--surface3);
+  margin-top: 24px; border-radius: 1px; overflow: hidden;
+}
+.loader-bar-fill {
+  height: 100%; background: var(--gradient);
+  animation: loadBar 1.5s var(--ease) forwards;
+}
+@keyframes loadBar { from { width: 0; } to { width: 100%; } }
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--nav-h);
+  display: flex; align-items: center; padding: 0 48px;
+  gap: 40px;
+  transition: background 0.3s;
+}
+nav.scrolled {
+  background: rgba(10,10,15,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  font-family: var(--font-display); font-size: 38px; color: var(--accent);
+  letter-spacing: 2px; cursor: pointer; text-decoration: none;
+  text-shadow: 0 0 20px rgba(232,38,58,0.4);
+  transition: text-shadow 0.3s;
+}
+.nav-logo:hover { text-shadow: 0 0 40px rgba(232,38,58,0.8); }
+.nav-links {
+  display: flex; gap: 28px; list-style: none;
+}
+.nav-links a {
+  color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 14px;
+  letter-spacing: 0.5px; transition: color 0.2s; cursor: pointer;
+}
+.nav-links a:hover, .nav-links a.active { color: var(--text); }
+.nav-right {
+  margin-left: auto; display: flex; align-items: center; gap: 16px;
+}
+.search-btn, .notif-btn {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+.search-btn:hover, .notif-btn:hover { background: var(--surface2); color: var(--text); }
+.profile-btn {
+  width: 36px; height: 36px; border-radius: 6px; overflow: hidden;
+  cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s;
+  background: var(--gradient); display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: #fff;
+}
+.profile-btn:hover { border-color: var(--accent); }
+.profile-dropdown {
+  position: absolute; top: calc(var(--nav-h) + 8px); right: 48px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 8px; min-width: 220px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  display: none; flex-direction: column; gap: 4px;
+}
+.profile-dropdown.open { display: flex; }
+.profile-dropdown-item {
+  padding: 10px 16px; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--text);
+  transition: background 0.15s;
+}
+.profile-dropdown-item:hover { background: var(--surface3); }
+.profile-dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* SEARCH OVERLAY */
+.search-overlay {
+  position: fixed; inset: 0; background: rgba(10,10,15,0.96);
+  backdrop-filter: blur(20px); z-index: 200;
+  display: none; flex-direction: column; align-items: center;
+  padding-top: 80px;
+}
+.search-overlay.open { display: flex; }
+.search-bar {
+  width: 100%; max-width: 700px; position: relative; padding: 0 24px;
+}
+.search-input {
+  width: 100%; background: var(--surface2); border: 2px solid var(--border);
+  border-radius: 50px; color: var(--text); font-family: var(--font-body);
+  font-size: 20px; padding: 16px 60px 16px 24px; outline: none;
+  transition: border-color 0.2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-muted); }
+.search-close {
+  position: absolute; right: 36px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 24px;
+}
+.search-results {
+  width: 100%; max-width: 700px; margin-top: 24px; padding: 0 24px;
+  display: grid; grid-template-columns: repeat(auto-fill, 160px); gap: 16px;
+  justify-content: center; max-height: 60vh; overflow-y: auto;
+}
+
+/* HERO */
+.hero {
+  position: relative; height: 90vh; min-height: 600px;
+  display: flex; align-items: flex-end; padding: 0 48px 80px;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center top;
+  transition: opacity 0.8s var(--ease);
+}
+.hero-bg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(to right, rgba(10,10,15,0.95) 0%, rgba(10,10,15,0.6) 50%, transparent 100%),
+              linear-gradient(to top, rgba(10,10,15,1) 0%, transparent 40%);
+}
+.hero-content {
+  position: relative; z-index: 2; max-width: 600px;
+}
+.hero-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.hero-eyebrow::before {
+  content: ''; display: block; width: 24px; height: 2px; background: var(--accent);
+}
+.hero-logo {
+  max-width: 360px; max-height: 120px; object-fit: contain;
+  object-position: left; margin-bottom: 20px; display: block;
+}
+.hero-title {
+  font-family: var(--font-display); font-size: clamp(48px, 7vw, 80px);
+  line-height: 0.95; letter-spacing: 1px; margin-bottom: 16px;
+}
+.hero-meta {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  font-size: 13px; color: var(--text-muted);
+}
+.hero-badge {
+  background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+}
+.hero-desc {
+  font-size: 15px; line-height: 1.7; color: rgba(240,240,248,0.8);
+  max-width: 480px; margin-bottom: 32px;
+}
+.hero-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 13px 28px; border-radius: var(--radius); font-family: var(--font-body);
+  font-size: 15px; font-weight: 600; cursor: pointer; border: none;
+  transition: all 0.2s var(--ease); text-decoration: none; white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+}
+.btn-primary:hover { background: #c4173c; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(232,38,58,0.4); }
+.btn-secondary {
+  background: rgba(255,255,255,0.12); color: var(--text);
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px);
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.2); }
+.btn-ghost {
+  background: none; color: var(--text-muted); padding: 13px 16px;
+}
+.btn-ghost:hover { color: var(--text); }
+.btn-icon { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; }
+
+/* CONTENT ROWS */
+.content-section { padding: 16px 48px; margin-bottom: 8px; }
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-family: var(--font-display); font-size: 22px; letter-spacing: 1px;
+}
+.section-link {
+  color: var(--text-muted); font-size: 13px; font-weight: 500;
+  text-decoration: none; cursor: pointer; transition: color 0.2s;
+}
+.section-link:hover { color: var(--accent); }
+.cards-row {
+  display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px;
+  scrollbar-width: none;
+}
+.cards-row::-webkit-scrollbar { display: none; }
+
+/* CARD */
+.card {
+  flex-shrink: 0; width: var(--card-w);
+  cursor: pointer; position: relative;
+  border-radius: var(--radius); overflow: hidden;
+  transition: transform 0.3s var(--ease);
+}
+.card:hover { transform: scale(1.04) translateY(-4px); z-index: 10; }
+.card:hover .card-overlay { opacity: 1; }
+.card-thumb {
+  width: 100%; aspect-ratio: 2/3; object-fit: cover;
+  background: var(--surface3); display: block;
+  transition: filter 0.3s;
+}
+.card.landscape .card-thumb { aspect-ratio: 16/9; }
+.card-overlay {
+  position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 50%);
+  opacity: 0; transition: opacity 0.3s; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 12px;
+}
+.card-play {
+  width: 40px; height: 40px; background: var(--accent); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
+  box-shadow: 0 4px 16px rgba(232,38,58,0.5);
+  transition: transform 0.2s;
+}
+.card:hover .card-play { transform: scale(1.1); }
+.card-title { font-size: 13px; font-weight: 600; line-height: 1.3; }
+.card-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.card-badges {
+  position: absolute; top: 8px; left: 8px; display: flex; flex-wrap: wrap; gap: 4px;
+}
+.badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 3px;
+}
+.badge-new { background: var(--accent); color: #fff; }
+.badge-4k { background: #1a3a8a; color: #7ab3ff; border: 1px solid #2a5acd; }
+.badge-hdr { background: #1a3a1a; color: #7aff7a; border: 1px solid #2a7a2a; }
+.badge-coming { background: rgba(245,200,66,0.15); color: var(--gold); border: 1px solid rgba(245,200,66,0.3); }
+.badge-featured { background: var(--gradient); color: #fff; }
+.badge-event { background: linear-gradient(90deg, #8b5cf6, #6366f1); color: #fff; }
+.progress-bar {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.2);
+}
+.progress-fill { height: 100%; background: var(--accent); }
+
+/* HERO INDICATORS */
+.hero-indicators {
+  position: absolute; bottom: 24px; right: 48px; display: flex; gap: 6px;
+}
+.hero-dot {
+  width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.3);
+  cursor: pointer; transition: all 0.3s;
+}
+.hero-dot.active { width: 24px; background: var(--accent); }
+
+/* PAGES */
+.page { display: none; }
+.page.active { display: block; }
+
+/* CONTENT DETAIL PAGE */
+.detail-hero {
+  position: relative; height: 70vh; min-height: 500px;
+  display: flex; align-items: flex-end; padding: 0 48px 60px;
+  overflow: hidden;
+}
+.detail-bg {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center 20%;
+}
+.detail-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to right, rgba(10,10,15,0.97) 0%, rgba(10,10,15,0.7) 60%, rgba(10,10,15,0.3) 100%),
+              linear-gradient(to top, rgba(10,10,15,1) 0%, transparent 50%);
+}
+.detail-content { position: relative; z-index: 2; max-width: 700px; }
+.detail-logo { max-width: 320px; max-height: 100px; object-fit: contain; object-position: left; margin-bottom: 16px; }
+.detail-title {
+  font-family: var(--font-display); font-size: clamp(40px, 6vw, 70px);
+  line-height: 0.95; margin-bottom: 12px;
+}
+.detail-meta {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  font-size: 13px; color: var(--text-muted); flex-wrap: wrap;
+}
+.detail-desc { font-size: 15px; line-height: 1.7; max-width: 560px; margin-bottom: 28px; color: rgba(240,240,248,0.85); }
+.detail-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* CUSTOM PLAY ICON */
+.play-custom {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--accent);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(232,38,58,0.4);
+  animation: playPulse 2s ease-in-out infinite;
+  border: none;
+}
+@keyframes playPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232,38,58,0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(232,38,58,0); }
+}
+
+/* TABS */
+.detail-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  padding: 0 48px; margin-bottom: 32px;
+}
+.tab-btn {
+  background: none; border: none; color: var(--text-muted); font-family: var(--font-body);
+  font-size: 14px; font-weight: 600; padding: 16px 24px; cursor: pointer;
+  position: relative; transition: color 0.2s; letter-spacing: 0.5px;
+}
+.tab-btn::after {
+  content: ''; position: absolute; bottom: -1px; left: 24px; right: 24px;
+  height: 2px; background: var(--accent); transform: scaleX(0); transition: transform 0.3s;
+}
+.tab-btn.active { color: var(--text); }
+.tab-btn.active::after { transform: scaleX(1); }
+.tab-content { padding: 0 48px 48px; display: none; }
+.tab-content.active { display: block; }
+
+/* EPISODES */
+.episodes-grid { display: flex; flex-direction: column; gap: 8px; }
+.episode-row {
+  background: var(--surface); border-radius: var(--radius); padding: 16px;
+  display: flex; align-items: center; gap: 16px; cursor: pointer;
+  border: 1px solid transparent; transition: border-color 0.2s, background 0.2s;
+}
+.episode-row:hover { background: var(--surface2); border-color: var(--border); }
+.episode-thumb {
+  width: 180px; flex-shrink: 0; aspect-ratio: 16/9;
+  object-fit: cover; border-radius: 6px; background: var(--surface3);
+}
+.episode-num { font-family: var(--font-mono); font-size: 20px; color: var(--text-muted); width: 28px; flex-shrink: 0; }
+.episode-info { flex: 1; }
+.episode-title { font-weight: 600; margin-bottom: 4px; }
+.episode-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.episode-duration { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+
+/* SEASONS SELECTOR */
+.seasons-select {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font-body); font-size: 14px; padding: 10px 16px;
+  border-radius: var(--radius); cursor: pointer; outline: none; margin-bottom: 20px;
+}
+
+/* CAST GRID */
+.cast-grid { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 16px; }
+.cast-card { text-align: center; }
+.cast-photo {
+  width: 80px; height: 80px; border-radius: 50%; object-fit: cover;
+  background: var(--surface3); margin: 0 auto 8px; display: block;
+}
+.cast-name { font-size: 13px; font-weight: 600; }
+.cast-role { font-size: 11px; color: var(--text-muted); }
+
+/* COLLECTION PAGE */
+.collection-hero {
+  height: 400px; position: relative; display: flex; align-items: flex-end;
+  padding: 0 48px 48px; overflow: hidden;
+}
+.collection-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, var(--card-w)); gap: 16px;
+  padding: 32px 48px;
+}
+
+/* PROFILES PAGE */
+.profiles-page {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 48px;
+}
+.profiles-title {
+  font-family: var(--font-serif); font-size: 36px; margin-bottom: 48px; text-align: center;
+}
+.profiles-grid {
+  display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; margin-bottom: 48px;
+}
+.profile-card {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  cursor: pointer; padding: 24px; border-radius: 12px;
+  border: 2px solid transparent; transition: all 0.2s; min-width: 120px;
+}
+.profile-card:hover { border-color: var(--accent); background: var(--surface); }
+.profile-avatar {
+  width: 80px; height: 80px; border-radius: 12px;
+  background: var(--gradient); display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 32px; color: #fff;
+  transition: transform 0.2s;
+}
+.profile-card:hover .profile-avatar { transform: scale(1.05); }
+.profile-card-name { font-size: 15px; font-weight: 500; }
+.profile-add {
+  border: 2px dashed var(--border); color: var(--text-muted);
+}
+.profile-add:hover { border-color: var(--text-muted); color: var(--text); }
+.profile-add .profile-avatar { background: var(--surface3); color: var(--text-muted); font-size: 40px; font-family: var(--font-body); font-weight: 300; }
+
+/* AUTH PAGES */
+.auth-page {
+  min-height: 100vh; display: flex;
+  background: radial-gradient(ellipse at top left, rgba(232,38,58,0.15) 0%, transparent 50%),
+              radial-gradient(ellipse at bottom right, rgba(196,23,60,0.1) 0%, transparent 50%),
+              var(--bg);
+}
+.auth-left {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 48px;
+}
+.auth-right {
+  width: 440px; background: var(--surface); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 48px;
+}
+.auth-brand {
+  font-family: var(--font-display); font-size: 80px; color: var(--accent);
+  text-shadow: 0 0 40px rgba(232,38,58,0.5); letter-spacing: 4px;
+  margin-bottom: 16px;
+}
+.auth-tagline { font-size: 18px; color: var(--text-muted); max-width: 400px; text-align: center; line-height: 1.5; }
+.auth-form { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+.auth-title { font-family: var(--font-display); font-size: 36px; letter-spacing: 1px; margin-bottom: 8px; }
+.auth-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 8px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+.form-label { font-size: 13px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px; }
+.form-input {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: var(--font-body); font-size: 15px; padding: 12px 16px;
+  outline: none; transition: border-color 0.2s;
+  width: 100%;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-input::placeholder { color: var(--text-muted); }
+.auth-switch { font-size: 13px; color: var(--text-muted); text-align: center; }
+.auth-switch span { color: var(--accent); cursor: pointer; font-weight: 600; }
+.auth-switch span:hover { text-decoration: underline; }
+.form-error { color: var(--accent); font-size: 13px; display: none; }
+.form-error.show { display: block; }
+
+/* PLAYER */
+.player-page {
+  position: fixed; inset: 0; background: #000; z-index: 500;
+  display: none; flex-direction: column;
+}
+.player-page.open { display: flex; }
+.player-video {
+  width: 100%; height: 100%; object-fit: contain; background: #000;
+}
+.player-controls {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  justify-content: flex-end; padding: 24px 40px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 40%);
+  opacity: 0; transition: opacity 0.3s;
+}
+.player-page:hover .player-controls { opacity: 1; }
+.player-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.player-scrubber {
+  width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px;
+  cursor: pointer; margin-bottom: 16px; position: relative;
+}
+.player-scrubber-fill {
+  position: absolute; top: 0; left: 0; height: 100%;
+  background: var(--accent); border-radius: 2px; pointer-events: none;
+}
+.player-scrubber-thumb {
+  position: absolute; top: -4px; width: 12px; height: 12px;
+  background: #fff; border-radius: 50%; transform: translateX(-50%);
+  transition: transform 0.1s;
+}
+.player-scrubber:hover { height: 6px; }
+.player-btns { display: flex; align-items: center; gap: 16px; }
+.player-btn {
+  background: none; border: none; color: #fff; cursor: pointer;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; transition: background 0.2s;
+}
+.player-btn:hover { background: rgba(255,255,255,0.15); }
+.player-time { font-size: 13px; color: rgba(255,255,255,0.7); font-family: var(--font-mono); }
+.player-close {
+  position: absolute; top: 24px; left: 40px;
+  background: rgba(0,0,0,0.6); border: none; color: #fff; cursor: pointer;
+  padding: 10px 16px; border-radius: 8px; font-family: var(--font-body); font-size: 14px;
+  display: flex; align-items: center; gap: 8px; transition: background 0.2s;
+}
+.player-close:hover { background: rgba(255,255,255,0.15); }
+
+/* ADMIN */
+.admin-page {
+  padding: calc(var(--nav-h) + 32px) 48px 48px;
+  min-height: 100vh;
+}
+.admin-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px;
+}
+.admin-title { font-family: var(--font-display); font-size: 40px; letter-spacing: 2px; }
+.admin-tabs {
+  display: flex; gap: 4px; background: var(--surface); border-radius: 10px; padding: 4px;
+  margin-bottom: 32px; flex-wrap: wrap;
+}
+.admin-tab {
+  background: none; border: none; color: var(--text-muted); font-family: var(--font-body);
+  font-size: 13px; font-weight: 600; padding: 10px 20px; border-radius: 8px; cursor: pointer;
+  transition: all 0.2s;
+}
+.admin-tab.active { background: var(--accent); color: #fff; }
+.admin-content { display: none; }
+.admin-content.active { display: block; }
+.admin-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; margin-bottom: 16px;
+}
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th {
+  text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--text-muted); padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.admin-table td {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 14px; vertical-align: middle;
+}
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table tr:hover td { background: var(--surface2); }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+}
+.stat-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.stat-value { font-family: var(--font-display); font-size: 40px; color: var(--accent); }
+
+/* CONTENT FORM */
+.content-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.content-form .full { grid-column: 1 / -1; }
+.form-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-muted); margin: 8px 0; grid-column: 1 / -1;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.checkbox-group { display: flex; align-items: center; gap: 8px; }
+.form-checkbox { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.badge-selector { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge-toggle {
+  padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text-muted); cursor: pointer; font-size: 12px;
+  transition: all 0.2s;
+}
+.badge-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.textarea {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: var(--font-body); font-size: 15px;
+  padding: 12px 16px; outline: none; resize: vertical; min-height: 80px; width: 100%;
+  transition: border-color 0.2s;
+}
+.textarea:focus { border-color: var(--accent); }
+.select-input {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: var(--font-body); font-size: 15px;
+  padding: 12px 16px; outline: none; cursor: pointer; width: 100%;
+  transition: border-color 0.2s;
+}
+.select-input:focus { border-color: var(--accent); }
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; }
+
+/* MODALS */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+  z-index: 300; display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 32px; width: 100%; max-width: 720px; max-height: 85vh; overflow-y: auto;
+  position: relative;
+}
+.modal-title { font-family: var(--font-display); font-size: 28px; margin-bottom: 24px; }
+.modal-close {
+  position: absolute; top: 16px; right: 16px; background: var(--surface2);
+  border: none; color: var(--text-muted); width: 32px; height: 32px; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; transition: all 0.2s;
+}
+.modal-close:hover { background: var(--accent); color: #fff; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 20px; font-size: 14px; font-weight: 500;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5); transform: translateY(20px); opacity: 0;
+  transition: all 0.3s var(--ease); pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(74,222,128,0.4); }
+.toast.error { border-color: var(--accent); }
+
+/* EMPTY STATE */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 80px; text-align: center; color: var(--text-muted);
+}
+.empty-icon { font-size: 64px; margin-bottom: 16px; opacity: 0.3; }
+.empty-title { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.empty-desc { font-size: 14px; max-width: 300px; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  nav { padding: 0 16px; }
+  .nav-links { display: none; }
+  .hero { padding: 0 16px 48px; height: 70vh; }
+  .detail-hero { padding: 0 16px 48px; height: 50vh; }
+  .content-section { padding: 12px 16px; }
+  .detail-tabs { padding: 0 16px; }
+  .tab-content { padding: 0 16px 32px; }
+  .auth-right { width: 100%; border-left: none; }
+  .auth-left { display: none; }
+  .admin-page { padding: calc(var(--nav-h) + 16px) 16px 32px; }
+  .content-form { grid-template-columns: 1fr; }
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+.animate-fadeup { animation: fadeUp 0.6s var(--ease) forwards; }
+.animate-fadein { animation: fadeIn 0.4s ease forwards; }
+</style>
+</head>
+<body>
+
+<!-- APP LOADER -->
+<div id="app-loader">
+  <div class="logo-anim">EDDIE+</div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <a class="nav-logo" onclick="navigate('home')">EDDIE+</a>
+  <ul class="nav-links" id="nav-links">
+    <li><a onclick="navigate('home')" class="active" data-nav="home">Home</a></li>
+    <li><a onclick="navigate('movies')" data-nav="movies">Movies</a></li>
+    <li><a onclick="navigate('shows')" data-nav="shows">TV Shows</a></li>
+    <li><a onclick="navigate('collections')" data-nav="collections">Collections</a></li>
+    <li><a onclick="navigate('my-list')" data-nav="my-list">My List</a></li>
+  </ul>
+  <div class="nav-right">
+    <button class="search-btn" onclick="toggleSearch()">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    </button>
+    <div id="nav-profile" style="display:none; position:relative;">
+      <div class="profile-btn" id="profile-btn-avatar" onclick="toggleProfileDrop()">E</div>
+      <div class="profile-dropdown" id="profile-dropdown">
+        <div class="profile-dropdown-item" onclick="navigate('profiles')">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Switch Profile
+        </div>
+        <div class="profile-dropdown-item" onclick="navigate('my-list')">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          My List
+        </div>
+        <div id="admin-link-dropdown" style="display:none;">
+          <div class="profile-dropdown-item" onclick="navigate('admin')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Admin Panel
+          </div>
+        </div>
+        <div class="profile-dropdown-divider"></div>
+        <div class="profile-dropdown-item" onclick="logout()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </div>
+      </div>
+    </div>
+    <div id="nav-auth-btns">
+      <button class="btn btn-primary" style="padding: 9px 20px; font-size: 14px;" onclick="navigate('login')">Sign In</button>
+    </div>
+  </div>
+</nav>
+
+<!-- SEARCH OVERLAY -->
+<div class="search-overlay" id="search-overlay">
+  <div class="search-bar">
+    <input type="text" class="search-input" placeholder="Search movies, shows, genres..." id="search-input" oninput="doSearch(this.value)">
+    <button class="search-close" onclick="toggleSearch()">✕</button>
+  </div>
+  <div class="search-results" id="search-results"></div>
+</div>
+
+<!-- MAIN PAGES CONTAINER -->
+<div id="main-app">
+
+  <!-- HOME PAGE -->
+  <div class="page active" id="page-home">
+    <!-- HERO CAROUSEL -->
+    <div class="hero" id="hero">
+      <div class="hero-bg" id="hero-bg"></div>
+      <div class="hero-content" id="hero-content"></div>
+      <div class="hero-indicators" id="hero-indicators"></div>
+    </div>
+    <div id="home-rows"></div>
+  </div>
+
+  <!-- MOVIES PAGE -->
+  <div class="page" id="page-movies" style="padding: calc(var(--nav-h) + 32px) 48px 48px;">
+    <h1 class="section-title" style="font-size:40px; margin-bottom:32px; font-family:var(--font-display); letter-spacing:2px;">MOVIES</h1>
+    <div class="collection-grid" id="movies-grid"></div>
+  </div>
+
+  <!-- SHOWS PAGE -->
+  <div class="page" id="page-shows" style="padding: calc(var(--nav-h) + 32px) 48px 48px;">
+    <h1 class="section-title" style="font-size:40px; margin-bottom:32px; font-family:var(--font-display); letter-spacing:2px;">TV SHOWS</h1>
+    <div class="collection-grid" id="shows-grid"></div>
+  </div>
+
+  <!-- COLLECTIONS PAGE -->
+  <div class="page" id="page-collections" style="padding: calc(var(--nav-h) + 32px) 0 48px;">
+    <h1 class="section-title" style="font-size:40px; margin-bottom:32px; font-family:var(--font-display); letter-spacing:2px; padding: 0 48px;">COLLECTIONS</h1>
+    <div id="collections-list"></div>
+  </div>
+
+  <!-- MY LIST PAGE -->
+  <div class="page" id="page-my-list" style="padding: calc(var(--nav-h) + 32px) 48px 48px;">
+    <h1 class="section-title" style="font-size:40px; margin-bottom:32px; font-family:var(--font-display); letter-spacing:2px;">MY LIST</h1>
+    <div class="collection-grid" id="my-list-grid"></div>
+  </div>
+
+  <!-- CONTENT DETAIL PAGE -->
+  <div class="page" id="page-detail">
+    <div class="detail-hero">
+      <div class="detail-bg" id="detail-bg"></div>
+      <div class="detail-content" id="detail-content"></div>
+    </div>
+    <div class="detail-tabs" id="detail-tabs"></div>
+    <div id="detail-tab-contents"></div>
+  </div>
+
+  <!-- PROFILES PAGE -->
+  <div class="page" id="page-profiles">
+    <div class="profiles-page">
+      <h1 class="profiles-title">Who's watching?</h1>
+      <div class="profiles-grid" id="profiles-grid"></div>
+    </div>
+  </div>
+
+  <!-- AUTH: LOGIN -->
+  <div class="page" id="page-login">
+    <div class="auth-page">
+      <div class="auth-left">
+        <div class="auth-brand">EDDIE+</div>
+        <p class="auth-tagline">Stream everything. No limits, no ads, no compromises. Just great content — free.</p>
+      </div>
+      <div class="auth-right">
+        <div class="auth-form">
+          <h2 class="auth-title">SIGN IN</h2>
+          <p class="auth-sub">Welcome back. Your queue is waiting.</p>
+          <div class="form-error" id="login-error"></div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="login-email" placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+          </div>
+          <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">Sign In</button>
+          <p class="auth-switch">New here? <span onclick="navigate('signup')">Create a free account</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTH: SIGNUP -->
+  <div class="page" id="page-signup">
+    <div class="auth-page">
+      <div class="auth-left">
+        <div class="auth-brand">EDDIE+</div>
+        <p class="auth-tagline">Join free. Watch anything. Create profiles for everyone in your household.</p>
+      </div>
+      <div class="auth-right">
+        <div class="auth-form">
+          <h2 class="auth-title">JOIN FREE</h2>
+          <p class="auth-sub">Start watching in seconds.</p>
+          <div class="form-error" id="signup-error"></div>
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-input" id="signup-username" placeholder="coolname123">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="signup-email" placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="signup-password" placeholder="Create a strong password" onkeydown="if(event.key==='Enter')doSignup()">
+          </div>
+          <button class="btn btn-primary" style="width:100%;" onclick="doSignup()">Create Account</button>
+          <p class="auth-switch">Already have an account? <span onclick="navigate('login')">Sign in</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PAGE -->
+  <div class="page" id="page-admin">
+    <div class="admin-page">
+      <div class="admin-header">
+        <h1 class="admin-title">ADMIN PANEL</h1>
+        <button class="btn btn-secondary" onclick="navigate('home')">← Back to Eddie+</button>
+      </div>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="adminTab('dashboard', this)">Dashboard</button>
+        <button class="admin-tab" onclick="adminTab('content', this)">Content</button>
+        <button class="admin-tab" onclick="adminTab('episodes', this)">Episodes</button>
+        <button class="admin-tab" onclick="adminTab('collections', this)">Collections</button>
+        <button class="admin-tab" onclick="adminTab('users', this)">Users</button>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div class="admin-content active" id="admin-dashboard">
+        <div class="stats-grid" id="admin-stats-grid"></div>
+        <div class="admin-card">
+          <h3 style="font-family:var(--font-display); font-size:20px; margin-bottom:16px;">Quick Actions</h3>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="openContentModal()">+ Add Movie/Show</button>
+            <button class="btn btn-secondary" onclick="adminTab('collections', document.querySelector('[onclick*=collections]'))">+ New Collection</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENT MANAGER -->
+      <div class="admin-content" id="admin-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="font-family:var(--font-display); font-size:24px;">All Content</h2>
+          <button class="btn btn-primary" onclick="openContentModal()">+ Add Content</button>
+        </div>
+        <div class="admin-card" style="padding:0; overflow:hidden;">
+          <table class="admin-table" id="content-table">
+            <thead><tr>
+              <th>Title</th><th>Type</th><th>Status</th><th>Badges</th><th>Featured</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="content-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EPISODES -->
+      <div class="admin-content" id="admin-episodes">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="font-family:var(--font-display); font-size:24px;">Episode Manager</h2>
+          <button class="btn btn-primary" onclick="openEpisodeModal()">+ Add Episode</button>
+        </div>
+        <div class="admin-card" style="padding:0; overflow:hidden;">
+          <table class="admin-table" id="episodes-table">
+            <thead><tr>
+              <th>Show</th><th>Season</th><th>Ep #</th><th>Title</th><th>Status</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="episodes-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- COLLECTIONS -->
+      <div class="admin-content" id="admin-collections">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="font-family:var(--font-display); font-size:24px;">Collections</h2>
+          <button class="btn btn-primary" onclick="openCollectionModal()">+ New Collection</button>
+        </div>
+        <div id="collections-admin-list"></div>
+      </div>
+
+      <!-- USERS -->
+      <div class="admin-content" id="admin-users">
+        <div style="margin-bottom:20px;">
+          <h2 style="font-family:var(--font-display); font-size:24px;">Users</h2>
+        </div>
+        <div class="admin-card" style="padding:0; overflow:hidden;">
+          <table class="admin-table">
+            <thead><tr>
+              <th>Username</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-app -->
+
+<!-- PLAYER -->
+<div class="player-page" id="player-page">
+  <video class="player-video" id="player-video" playsinline></video>
+  <div class="player-controls">
+    <div class="player-title" id="player-title"></div>
+    <div class="player-scrubber" id="player-scrubber" onclick="scrubberClick(event)">
+      <div class="player-scrubber-fill" id="player-fill" style="width:0%"></div>
+      <div class="player-scrubber-thumb" id="player-thumb" style="left:0%"></div>
+    </div>
+    <div class="player-btns">
+      <button class="player-btn" id="play-pause-btn" onclick="togglePlay()">
+        <svg id="play-icon" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="player-btn" onclick="skip(-10)">
+        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="9.5" y="17" font-size="7" fill="currentColor" font-family="sans-serif">10</text></svg>
+      </button>
+      <button class="player-btn" onclick="skip(10)">
+        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M18 6l-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5z"/><text x="9.5" y="17" font-size="7" fill="currentColor" font-family="sans-serif">10</text></svg>
+      </button>
+      <span class="player-time" id="player-time">0:00 / 0:00</span>
+      <div style="margin-left:auto; display:flex; gap:8px;">
+        <button class="player-btn" onclick="toggleMute()">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24" id="mute-icon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        </button>
+        <button class="player-btn" onclick="toggleFullscreen()">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <button class="player-close" onclick="closePlayer()">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Back
+  </button>
+</div>
+
+<!-- CONTENT MODAL -->
+<div class="modal-overlay" id="content-modal">
+  <div class="modal">
+    <h2 class="modal-title" id="content-modal-title">Add Content</h2>
+    <button class="modal-close" onclick="closeContentModal()">✕</button>
+    <div class="content-form" id="content-form-body"></div>
+    <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeContentModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContent()">Save Content</button>
+    </div>
+  </div>
+</div>
+
+<!-- EPISODE MODAL -->
+<div class="modal-overlay" id="episode-modal">
+  <div class="modal">
+    <h2 class="modal-title">Add Episode</h2>
+    <button class="modal-close" onclick="document.getElementById('episode-modal').classList.remove('open')">✕</button>
+    <div class="content-form" id="episode-form-body"></div>
+    <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="document.getElementById('episode-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEpisode()">Save Episode</button>
+    </div>
+  </div>
+</div>
+
+<!-- COLLECTION MODAL -->
+<div class="modal-overlay" id="collection-modal">
+  <div class="modal">
+    <h2 class="modal-title" id="collection-modal-title">New Collection</h2>
+    <button class="modal-close" onclick="document.getElementById('collection-modal').classList.remove('open')">✕</button>
+    <div class="content-form" id="collection-form-body"></div>
+    <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="document.getElementById('collection-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCollection()">Save Collection</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal" style="max-width:400px;">
+    <h2 class="modal-title" id="profile-modal-title">Add Profile</h2>
+    <button class="modal-close" onclick="document.getElementById('profile-modal').classList.remove('open')">✕</button>
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="form-group">
+        <label class="form-label">Profile Name</label>
+        <input type="text" class="form-input" id="profile-name-input" placeholder="e.g. Kids">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Avatar Color</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="avatar-colors">
+          <div class="avatar-color-opt" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#e8263a,#c4173c);cursor:pointer;border:2px solid transparent;" data-color="gradient-red" onclick="selectAvatarColor(this)"></div>
+          <div class="avatar-color-opt" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);cursor:pointer;border:2px solid transparent;" data-color="gradient-blue" onclick="selectAvatarColor(this)"></div>
+          <div class="avatar-color-opt" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;border:2px solid transparent;" data-color="gradient-green" onclick="selectAvatarColor(this)"></div>
+          <div class="avatar-color-opt" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);cursor:pointer;border:2px solid transparent;" data-color="gradient-purple" onclick="selectAvatarColor(this)"></div>
+          <div class="avatar-color-opt" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;border:2px solid transparent;" data-color="gradient-amber" onclick="selectAvatarColor(this)"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIN (optional)</label>
+        <input type="password" class="form-input" id="profile-pin-input" placeholder="4-digit PIN" maxlength="4">
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" class="form-checkbox" id="profile-kids">
+        <label for="profile-kids" style="font-size:14px;">Kids Mode</label>
+      </div>
+    </div>
+    <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="document.getElementById('profile-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const API = '/api'; // same domain
+let currentUser = null;
+let currentProfile = null;
+let allContent = [];
+let heroItems = [];
+let heroIndex = 0;
+let heroTimer = null;
+let editingContentId = null;
+let editingCollectionId = null;
+let editingEpisodeId = null;
+let selectedAvatarColor = 'gradient-red';
+
+// ─── INIT ──────────────────────────────────────────────────────────────────────
+async function init() {
+  const token = localStorage.getItem('eddie_token');
+  if (token) {
+    try {
+      const me = await api('GET', '/auth/me');
+      currentUser = me;
+      showLoggedIn();
+    } catch { localStorage.removeItem('eddie_token'); }
+  }
+
+  // Load and display home
+  await loadHome();
+
+  setTimeout(() => {
+    const loader = document.getElementById('app-loader');
+    loader.style.opacity = '0';
+    setTimeout(() => loader.style.display = 'none', 500);
+  }, 1800);
+
+  // Nav scroll
+  window.addEventListener('scroll', () => {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 20);
+  });
+}
+
+// ─── API HELPER ───────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('eddie_token');
+  if (token) headers['Authorization'] = \`Bearer \${token}\`;
+
+  const res = await fetch(API + path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error');
+  return data;
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+function navigate(page, params = {}) {
+  // Close dropdowns
+  document.getElementById('profile-dropdown').classList.remove('open');
+
+  const pages = document.querySelectorAll('.page');
+  pages.forEach(p => p.classList.remove('active'));
+
+  const target = document.getElementById('page-' + page);
+  if (target) {
+    target.classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  // Update nav links
+  document.querySelectorAll('[data-nav]').forEach(a => {
+    a.classList.toggle('active', a.dataset.nav === page);
+  });
+
+  // Page-specific load
+  if (page === 'home') loadHome();
+  else if (page === 'movies') loadMoviesPage();
+  else if (page === 'shows') loadShowsPage();
+  else if (page === 'collections') loadCollectionsPage();
+  else if (page === 'my-list') loadMyList();
+  else if (page === 'profiles') loadProfiles();
+  else if (page === 'admin') {
+    if (currentUser?.role !== 'admin') { navigate('home'); return; }
+    loadAdminDashboard();
+    loadAdminContent();
+    loadAdminEpisodes();
+    loadAdminCollections();
+    loadAdminUsers();
+  }
+  else if (page === 'detail' && params.slug) loadDetailPage(params.slug);
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  err.classList.remove('show');
+  try {
+    const res = await api('POST', '/auth/login', { email, password: pass });
+    localStorage.setItem('eddie_token', res.token);
+    currentUser = res;
+    showLoggedIn();
+    navigate('home');
+    toast('Welcome back, ' + res.username + '!', 'success');
+  } catch(e) {
+    err.textContent = e.message;
+    err.classList.add('show');
+  }
+}
+
+async function doSignup() {
+  const username = document.getElementById('signup-username').value;
+  const email = document.getElementById('signup-email').value;
+  const pass = document.getElementById('signup-password').value;
+  const err = document.getElementById('signup-error');
+  err.classList.remove('show');
+  try {
+    const res = await api('POST', '/auth/signup', { email, password: pass, username });
+    localStorage.setItem('eddie_token', res.token);
+    currentUser = res;
+    showLoggedIn();
+    navigate('profiles');
+    toast('Welcome to Eddie+!', 'success');
+  } catch(e) {
+    err.textContent = e.message;
+    err.classList.add('show');
+  }
+}
+
+async function logout() {
+  await api('POST', '/auth/logout').catch(() => {});
+  localStorage.removeItem('eddie_token');
+  localStorage.removeItem('eddie_profile');
+  currentUser = null;
+  currentProfile = null;
+  document.getElementById('nav-profile').style.display = 'none';
+  document.getElementById('nav-auth-btns').style.display = 'flex';
+  document.getElementById('admin-link-dropdown').style.display = 'none';
+  navigate('home');
+  toast('Signed out');
+}
+
+function showLoggedIn() {
+  document.getElementById('nav-auth-btns').style.display = 'none';
+  document.getElementById('nav-profile').style.display = 'flex';
+  const avatar = document.getElementById('profile-btn-avatar');
+  avatar.textContent = (currentUser.username || 'U')[0].toUpperCase();
+  if (currentUser.role === 'admin') {
+    document.getElementById('admin-link-dropdown').style.display = 'block';
+  }
+
+  // Restore profile
+  const savedProfile = localStorage.getItem('eddie_profile');
+  if (savedProfile) currentProfile = JSON.parse(savedProfile);
+}
+
+function toggleProfileDrop() {
+  document.getElementById('profile-dropdown').classList.toggle('open');
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#nav-profile')) {
+    document.getElementById('profile-dropdown').classList.remove('open');
+  }
+});
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+async function loadHome() {
+  try {
+    allContent = await api('GET', '/content?limit=100');
+    buildHero();
+    buildHomeRows();
+  } catch(e) {
+    console.error('Failed to load content', e);
+    buildHomeRows(true);
+  }
+}
+
+function buildHero() {
+  heroItems = allContent.filter(c => c.featured).sort((a,b) => a.featured_order - b.featured_order);
+  if (!heroItems.length) heroItems = allContent.slice(0, 5);
+  if (!heroItems.length) return;
+
+  heroIndex = 0;
+  renderHeroItem();
+
+  // Indicators
+  const indEl = document.getElementById('hero-indicators');
+  indEl.innerHTML = heroItems.slice(0,8).map((_, i) =>
+    \`<div class="hero-dot \${i===0?'active':''}" onclick="goHero(\${i})"></div>\`
+  ).join('');
+
+  clearInterval(heroTimer);
+  heroTimer = setInterval(() => goHero((heroIndex + 1) % Math.min(heroItems.length, 8)), 7000);
+}
+
+function renderHeroItem() {
+  const item = heroItems[heroIndex];
+  if (!item) return;
+
+  const bg = document.getElementById('hero-bg');
+  bg.style.backgroundImage = \`url('\${item.backdrop_url || item.poster_url || ''}')\`;
+
+  const customFont = item.custom_font ? \`font-family: '\${item.custom_font}', var(--font-display);\` : 'font-family: var(--font-display);';
+  const customColor = item.custom_color || 'var(--accent)';
+
+  document.getElementById('hero-content').innerHTML = \`
+    <div class="hero-eyebrow">\${item.type === 'show' ? '📺 Series' : '🎬 Film'}</div>
+    \${item.logo_url ? \`<img class="hero-logo" src="\${item.logo_url}" alt="\${item.title}">\` : \`<h1 class="hero-title" style="\${customFont} color:\${customColor}">\${item.title}</h1>\`}
+    <div class="hero-meta">
+      \${item.release_year ? \`<span>\${item.release_year}</span><span>·</span>\` : ''}
+      \${item.age_rating ? \`<span class="hero-badge">\${item.age_rating}</span>\` : ''}
+      \${item.duration ? \`<span>\${Math.floor(item.duration/60)}h \${item.duration%60}m</span>\` : ''}
+      \${item.rating ? \`<span>⭐ \${item.rating}</span>\` : ''}
+    </div>
+    <p class="hero-desc">\${(item.description||'').slice(0,200)}\${item.description?.length>200?'...':''}</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" onclick="openPlayer('\${item.video_url||''}','\${item.title}')">
+        \${getPlayIcon(item)} \${item.video_url ? 'Play' : 'Watch Trailer'}
+      </button>
+      \${item.trailer_url && item.video_url ? \`<button class="btn btn-secondary" onclick="openPlayer('\${item.trailer_url}','\${item.title} - Trailer')">▶ Trailer</button>\` : ''}
+      <button class="btn btn-secondary" onclick="navigate('detail', {slug:'\${item.slug}'})">More Info</button>
+    </div>
+  \`;
+
+  // Update indicators
+  document.querySelectorAll('.hero-dot').forEach((d,i) => d.classList.toggle('active', i===heroIndex));
+}
+
+function getPlayIcon(item) {
+  if (item.play_icon === 'fire') return '🔥';
+  if (item.play_icon === 'star') return '⭐';
+  if (item.play_icon === 'thunder') return '⚡';
+  return '▶';
+}
+
+function goHero(i) {
+  heroIndex = i;
+  renderHeroItem();
+  clearInterval(heroTimer);
+  heroTimer = setInterval(() => goHero((heroIndex + 1) % Math.min(heroItems.length, 8)), 7000);
+}
+
+function buildHomeRows(empty = false) {
+  const container = document.getElementById('home-rows');
+  if (empty || !allContent.length) {
+    container.innerHTML = \`<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">No content yet</div><div class="empty-desc">Add movies and shows in the admin panel to get started.</div></div>\`;
+    return;
+  }
+
+  const featured = allContent.filter(c => c.featured).slice(0, 12);
+  const newArr = allContent.filter(c => c.is_new).slice(0, 12);
+  const movies = allContent.filter(c => c.type === 'movie').slice(0, 12);
+  const shows = allContent.filter(c => c.type === 'show').slice(0, 12);
+  const is4k = allContent.filter(c => c.is_4k).slice(0, 12);
+
+  let html = '';
+  if (featured.length) html += buildRow('Featured', featured, true);
+  if (newArr.length) html += buildRow('New on Eddie+', newArr);
+  if (movies.length) html += buildRow('Movies', movies, false, () => navigate('movies'));
+  if (shows.length) html += buildRow('TV Shows', shows, false, () => navigate('shows'));
+  if (is4k.length) html += buildRow('In 4K Ultra HD', is4k);
+  container.innerHTML = html;
+}
+
+function buildRow(title, items, landscape = false, seeAll) {
+  const cards = items.map(item => buildCard(item, landscape)).join('');
+  return \`
+    <div class="content-section">
+      <div class="section-header">
+        <h2 class="section-title">\${title}</h2>
+        \${seeAll ? \`<a class="section-link" onclick="(\${seeAll.toString()})()">See all →</a>\` : ''}
+      </div>
+      <div class="cards-row">\${cards}</div>
+    </div>\`;
+}
+
+function buildCard(item, landscape = false) {
+  const badges = buildBadges(item);
+  const img = landscape ? (item.backdrop_url || item.poster_url) : item.poster_url;
+  return \`
+    <div class="card \${landscape ? 'landscape' : ''}" onclick="navigate('detail', {slug:'\${item.slug}'})">
+      \${img ? \`<img class="card-thumb" src="\${img}" alt="\${item.title}" loading="lazy" onerror="this.style.background='var(--surface3)'">\` : \`<div class="card-thumb" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;color:var(--text-muted);">🎬</div>\`}
+      <div class="card-badges">\${badges}</div>
+      <div class="card-overlay">
+        <div class="card-play">
+          <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="card-title">\${item.title}</div>
+        <div class="card-meta">\${item.release_year || ''} \${item.type === 'show' ? '· ' + (item.season_count||'') + ' seasons' : ''}</div>
+      </div>
+    </div>\`;
+}
+
+function buildBadges(item) {
+  let html = '';
+  if (item.is_new) html += \`<span class="badge badge-new">New</span>\`;
+  if (item.is_4k) html += \`<span class="badge badge-4k">4K</span>\`;
+  if (item.is_hdr) html += \`<span class="badge badge-hdr">HDR</span>\`;
+  if (item.scheduled_release) html += \`<span class="badge badge-coming">Coming Soon</span>\`;
+  // Custom badges
+  if (item.badges?.length) {
+    item.badges.forEach(b => {
+      if (b === 'event') html += \`<span class="badge badge-event">Event</span>\`;
+      else if (b === 'featured') html += \`<span class="badge badge-featured">Featured</span>\`;
+    });
+  }
+  return html;
+}
+
+// ─── MOVIES / SHOWS PAGES ──────────────────────────────────────────────────────
+async function loadMoviesPage() {
+  const movies = await api('GET', '/content?type=movie&limit=100');
+  document.getElementById('movies-grid').innerHTML = movies.map(m => buildCard(m)).join('');
+}
+
+async function loadShowsPage() {
+  const shows = await api('GET', '/content?type=show&limit=100');
+  document.getElementById('shows-grid').innerHTML = shows.map(s => buildCard(s)).join('');
+}
+
+// ─── COLLECTIONS ──────────────────────────────────────────────────────────────
+async function loadCollectionsPage() {
+  const cols = await api('GET', '/collections');
+  const container = document.getElementById('collections-list');
+  if (!cols.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🗂️</div><div class="empty-title">No collections yet</div></div>';
+    return;
+  }
+  container.innerHTML = cols.map(col => \`
+    <div class="content-section">
+      <div class="section-header">
+        <h2 class="section-title">\${col.title}</h2>
+        <a class="section-link" onclick="loadCollectionDetail('\${col.slug}')">View all →</a>
+      </div>
+      <p style="color:var(--text-muted);font-size:14px;margin:-12px 0 16px;">\${col.description||''}</p>
+    </div>
+  \`).join('');
+}
+
+async function loadCollectionDetail(slug) {
+  const col = await api('GET', \`/collections/\${slug}\`);
+  // Navigate to a virtual collection page
+  const pages = document.querySelectorAll('.page');
+  pages.forEach(p => p.classList.remove('active'));
+  // Use collections page with detail view
+  document.getElementById('page-collections').classList.add('active');
+  document.getElementById('collections-list').innerHTML = \`
+    <div style="padding: 0 48px;">
+      <button class="btn btn-ghost" onclick="loadCollectionsPage()" style="margin-bottom:24px;">← All Collections</button>
+      <h2 style="font-family:var(--font-display);font-size:36px;margin-bottom:8px;">\${col.title}</h2>
+      <p style="color:var(--text-muted);margin-bottom:32px;">\${col.description||''}</p>
+      <div class="collection-grid" style="padding:0;">\${col.items?.map(i => buildCard(i)).join('') || '<div class="empty-state"><div class="empty-title">Empty collection</div></div>'}</div>
+    </div>
+  \`;
+}
+
+// ─── MY LIST ──────────────────────────────────────────────────────────────────
+async function loadMyList() {
+  if (!currentUser || !currentProfile) {
+    document.getElementById('my-list-grid').innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><div class="empty-title">Sign in to see your list</div></div>';
+    return;
+  }
+  const items = await api('GET', \`/watchlist?profile_id=\${currentProfile.id}\`);
+  const grid = document.getElementById('my-list-grid');
+  if (!items.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Your list is empty</div><div class="empty-desc">Add content from the detail pages.</div></div>';
+    return;
+  }
+  grid.innerHTML = items.map(item => buildCard(item)).join('');
+}
+
+// ─── DETAIL PAGE ──────────────────────────────────────────────────────────────
+async function loadDetailPage(slug) {
+  const item = await api('GET', \`/content/\${slug}\`);
+  if (!item) return;
+
+  // Apply custom font if set
+  const customFont = item.custom_font ? \`@import url('https://fonts.googleapis.com/css2?family=\${encodeURIComponent(item.custom_font)}&display=swap');\` : '';
+  const titleFont = item.custom_font ? \`font-family: '\${item.custom_font}', var(--font-display);\` : 'font-family: var(--font-display);';
+  const titleColor = item.custom_color || 'var(--text)';
+
+  const bg = document.getElementById('detail-bg');
+  bg.style.backgroundImage = \`url('\${item.backdrop_url || item.poster_url || ''}')\`;
+
+  const metaBadges = [
+    item.release_year,
+    item.age_rating ? \`<span class="hero-badge">\${item.age_rating}</span>\` : null,
+    item.duration ? \`\${Math.floor(item.duration/60)}h \${item.duration%60}m\` : null,
+    item.rating ? \`⭐ \${item.rating}\` : null,
+    ...(item.genres || []).slice(0,3)
+  ].filter(Boolean).join(' · ');
+
+  const inList = false; // could check from watchlist
+
+  document.getElementById('detail-content').innerHTML = \`
+    \${item.logo_url ? \`<img class="detail-logo" src="\${item.logo_url}" alt="\${item.title}">\` : \`<h1 class="detail-title" style="\${titleFont} color:\${titleColor}">\${item.title}</h1>\`}
+    \${item.tagline ? \`<p style="font-style:italic;color:var(--text-muted);margin-bottom:12px;">\${item.tagline}</p>\` : ''}
+    <div class="detail-meta">\${metaBadges}</div>
+    \${buildBadges(item) ? \`<div style="display:flex;gap:6px;margin-bottom:16px;">\${buildBadges(item)}</div>\` : ''}
+    <p class="detail-desc">\${item.description||''}</p>
+    <div class="detail-actions">
+      \${item.video_url ? \`<button class="play-custom btn btn-primary" onclick="openPlayer('\${item.video_url}','\${item.title}')">
+        <span>\${getPlayIcon(item)}</span> Play
+      </button>\` : ''}
+      \${item.trailer_url ? \`<button class="btn btn-secondary" onclick="openPlayer('\${item.trailer_url}','\${item.title} - Trailer')">▶ Trailer</button>\` : ''}
+      \${item.teaser_url ? \`<button class="btn btn-secondary" onclick="openPlayer('\${item.teaser_url}','\${item.title} - Teaser')">👁 Teaser</button>\` : ''}
+      <button class="btn btn-secondary btn-icon" onclick="toggleWatchlist('\${item.id}')" title="Add to My List">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      </button>
+    </div>
+  \`;
+
+  // Build tabs
+  const baseTabs = ['Overview', ...(item.type === 'show' ? ['Episodes'] : []), 'Cast', 'More'];
+  const customTabs = item.custom_tabs || [];
+  const allTabs = [...baseTabs, ...customTabs.map(t => t.label || t)];
+
+  document.getElementById('detail-tabs').innerHTML = allTabs.map((t, i) =>
+    \`<button class="tab-btn \${i===0?'active':''}" onclick="switchTab('tab-\${i}', this)">\${t}</button>\`
+  ).join('');
+
+  let tabContents = \`
+    <div class="tab-content active" id="tab-0">
+      <div style="max-width:700px;">
+        \${item.long_description ? \`<p style="line-height:1.8;color:rgba(240,240,248,0.85);margin-bottom:24px;">\${item.long_description}</p>\` : ''}
+        \${item.crew?.length ? \`<div style="margin-bottom:16px;"><span style="color:var(--text-muted);font-size:13px;font-weight:600;">DIRECTOR</span><br>\${item.crew.join(', ')}</div>\` : ''}
+        \${item.genres?.length ? \`<div style="margin-bottom:16px;"><span style="color:var(--text-muted);font-size:13px;font-weight:600;">GENRES</span><br>\${item.genres.join(', ')}</div>\` : ''}
+        \${item.country ? \`<div><span style="color:var(--text-muted);font-size:13px;font-weight:600;">COUNTRY</span><br>\${item.country}</div>\` : ''}
+      </div>
+    </div>
+  \`;
+
+  let tabIdx = 1;
+
+  if (item.type === 'show') {
+    const seasons = item.seasons || [];
+    const episodes = item.episodes || [];
+    const seasonOptions = seasons.map(s => \`<option value="\${s.id}">Season \${s.season_number}: \${s.title||''}</option>\`).join('');
+    tabContents += \`
+      <div class="tab-content" id="tab-\${tabIdx}">
+        \${seasons.length > 1 ? \`<select class="seasons-select" onchange="filterEpisodes(this.value)">\${seasonOptions}</select>\` : ''}
+        <div class="episodes-grid" id="episodes-list">
+          \${buildEpisodeList(episodes, seasons[0]?.id)}
+        </div>
+      </div>\`;
+    tabIdx++;
+  }
+
+  // Cast tab
+  tabContents += \`
+    <div class="tab-content" id="tab-\${tabIdx}">
+      \${item.cast_members?.length ? \`
+        <div class="cast-grid">
+          \${item.cast_members.map(m => \`
+            <div class="cast-card">
+              <div class="cast-photo" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:28px;">👤</div>
+              <div class="cast-name">\${typeof m === 'string' ? m : m.name}</div>
+              \${typeof m === 'object' && m.role ? \`<div class="cast-role">\${m.role}</div>\` : ''}
+            </div>
+          \`).join('')}
+        </div>
+      \` : '<div class="empty-state"><div class="empty-title">No cast info</div></div>'}
+    </div>\`;
+  tabIdx++;
+
+  // More tab
+  tabContents += \`
+    <div class="tab-content" id="tab-\${tabIdx}">
+      <div style="max-width:500px;">
+        \${item.tags?.length ? \`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">\${item.tags.map(t => \`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:13px;">\${t}</span>\`).join('')}</div>\` : ''}
+        <p style="color:var(--text-muted);font-size:13px;">Content ID: \${item.id}</p>
+      </div>
+    </div>\`;
+
+  // Custom tabs content
+  customTabs.forEach((t, i) => {
+    tabContents += \`<div class="tab-content" id="tab-\${tabIdx+1+i}"><div style="padding:8px 0;">\${t.content || '<p style="color:var(--text-muted);">Custom tab content</p>'}</div></div>\`;
+  });
+
+  document.getElementById('detail-tab-contents').innerHTML = tabContents;
+}
+
+function buildEpisodeList(episodes, seasonId) {
+  const filtered = seasonId ? episodes.filter(e => e.season_id === seasonId) : episodes;
+  if (!filtered.length) return '<div class="empty-state"><div class="empty-title">No episodes</div></div>';
+  return filtered.map(ep => \`
+    <div class="episode-row" onclick="openPlayer('\${ep.video_url||''}','\${ep.title}')">
+      <span class="episode-num">\${ep.episode_number}</span>
+      \${ep.thumbnail_url ? \`<img class="episode-thumb" src="\${ep.thumbnail_url}" alt="" loading="lazy">\` : \`<div class="episode-thumb" style="background:var(--surface3);border-radius:6px;"></div>\`}
+      <div class="episode-info">
+        <div class="episode-title">\${ep.title}</div>
+        <div class="episode-desc">\${(ep.description||'').slice(0,120)}</div>
+      </div>
+      <span class="episode-duration">\${ep.duration ? Math.floor(ep.duration/60)+'m' : ''}</span>
+    </div>
+  \`).join('');
+}
+
+function filterEpisodes(seasonId) {
+  const allContent_detail = window._detailItem;
+  // Re-filter (simplified)
+  const eps = document.querySelectorAll('.episode-row');
+  // In a real impl we'd have the data; for now just reload
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+}
+
+async function toggleWatchlist(contentId) {
+  if (!currentUser) { navigate('login'); return; }
+  if (!currentProfile) { navigate('profiles'); return; }
+  try {
+    await api('POST', '/watchlist', { profile_id: currentProfile.id, content_id: contentId });
+    toast('Added to My List', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ─── PROFILES ─────────────────────────────────────────────────────────────────
+async function loadProfiles() {
+  if (!currentUser) { navigate('login'); return; }
+  const profiles = await api('GET', '/profiles');
+
+  const AVATAR_GRADIENTS = {
+    'gradient-red': 'linear-gradient(135deg,#e8263a,#c4173c)',
+    'gradient-blue': 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+    'gradient-green': 'linear-gradient(135deg,#10b981,#059669)',
+    'gradient-purple': 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
+    'gradient-amber': 'linear-gradient(135deg,#f59e0b,#d97706)',
+  };
+
+  const grid = document.getElementById('profiles-grid');
+  grid.innerHTML = profiles.map(p => {
+    const grad = AVATAR_GRADIENTS[p.avatar] || 'linear-gradient(135deg,#e8263a,#c4173c)';
+    return \`
+      <div class="profile-card" onclick="selectProfile(\${JSON.stringify(p).split('"').join("'")})">
+        <div class="profile-avatar" style="background:\${grad}">\${(p.name||'?')[0].toUpperCase()}</div>
+        <div class="profile-card-name">\${p.name}</div>
+        \${p.kids_mode ? '<span style="font-size:11px;color:var(--text-muted);">Kids</span>' : ''}
+      </div>\`;
+  }).join('') + (profiles.length < 5 ? \`
+    <div class="profile-card profile-add" onclick="openProfileModal()">
+      <div class="profile-avatar">+</div>
+      <div class="profile-card-name">Add Profile</div>
+    </div>\` : '');
+}
+
+function selectProfile(profile) {
+  currentProfile = profile;
+  localStorage.setItem('eddie_profile', JSON.stringify(profile));
+  navigate('home');
+  toast('Switched to ' + profile.name, 'success');
+}
+
+function openProfileModal() {
+  document.getElementById('profile-modal').classList.add('open');
+}
+
+function selectAvatarColor(el) {
+  document.querySelectorAll('.avatar-color-opt').forEach(e => e.style.border = '2px solid transparent');
+  el.style.border = '2px solid var(--accent)';
+  selectedAvatarColor = el.dataset.color;
+}
+
+async function saveProfile() {
+  const name = document.getElementById('profile-name-input').value;
+  if (!name) { toast('Enter a profile name', 'error'); return; }
+  const pin = document.getElementById('profile-pin-input').value;
+  const kids = document.getElementById('profile-kids').checked;
+  try {
+    await api('POST', '/profiles', { name, avatar: selectedAvatarColor, pin, kids_mode: kids });
+    document.getElementById('profile-modal').classList.remove('open');
+    loadProfiles();
+    toast('Profile created!', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ─── SEARCH ───────────────────────────────────────────────────────────────────
+function toggleSearch() {
+  const ov = document.getElementById('search-overlay');
+  ov.classList.toggle('open');
+  if (ov.classList.contains('open')) document.getElementById('search-input').focus();
+}
+
+let searchTimer;
+function doSearch(q) {
+  clearTimeout(searchTimer);
+  if (!q) { document.getElementById('search-results').innerHTML = ''; return; }
+  searchTimer = setTimeout(async () => {
+    const results = await api('GET', \`/search?q=\${encodeURIComponent(q)}\`);
+    document.getElementById('search-results').innerHTML = results.map(item => buildCard(item)).join('');
+  }, 300);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('search-overlay').classList.remove('open');
+    closePlayer();
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+// ─── PLAYER ───────────────────────────────────────────────────────────────────
+function openPlayer(url, title) {
+  if (!url) { toast('No video available', 'error'); return; }
+  const player = document.getElementById('player-page');
+  const video = document.getElementById('player-video');
+  player.classList.add('open');
+  video.src = url;
+  video.play();
+  document.getElementById('player-title').textContent = title || '';
+
+  video.addEventListener('timeupdate', updateProgress);
+}
+
+function closePlayer() {
+  const player = document.getElementById('player-page');
+  const video = document.getElementById('player-video');
+  player.classList.remove('open');
+  video.pause();
+  video.src = '';
+}
+
+function togglePlay() {
+  const v = document.getElementById('player-video');
+  v.paused ? v.play() : v.pause();
+  const icon = document.getElementById('play-icon');
+  icon.innerHTML = v.paused
+    ? '<path d="M8 5v14l11-7z"/>'
+    : '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+}
+
+function skip(sec) {
+  document.getElementById('player-video').currentTime += sec;
+}
+
+function toggleMute() {
+  const v = document.getElementById('player-video');
+  v.muted = !v.muted;
+}
+
+function toggleFullscreen() {
+  const pp = document.getElementById('player-page');
+  document.fullscreenElement ? document.exitFullscreen() : pp.requestFullscreen();
+}
+
+function updateProgress() {
+  const v = document.getElementById('player-video');
+  const pct = v.duration ? (v.currentTime / v.duration * 100) : 0;
+  document.getElementById('player-fill').style.width = pct + '%';
+  document.getElementById('player-thumb').style.left = pct + '%';
+  document.getElementById('player-time').textContent = formatTime(v.currentTime) + ' / ' + formatTime(v.duration||0);
+}
+
+function scrubberClick(e) {
+  const v = document.getElementById('player-video');
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  v.currentTime = pct * (v.duration || 0);
+}
+
+function formatTime(s) {
+  const m = Math.floor(s/60);
+  const sec = Math.floor(s%60);
+  return \`\${m}:\${sec.toString().padStart(2,'0')}\`;
+}
+
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+function adminTab(name, btn) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.admin-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('admin-' + name).classList.add('active');
+}
+
+async function loadAdminDashboard() {
+  try {
+    const stats = await api('GET', '/admin/stats');
+    const grid = document.getElementById('admin-stats-grid');
+    grid.innerHTML = \`
+      <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value">\${stats.users}</div></div>
+      <div class="stat-card"><div class="stat-label">Watchlist Items</div><div class="stat-value">\${stats.watchlist}</div></div>
+      <div class="stat-card"><div class="stat-label">Watch Events</div><div class="stat-value">\${stats.watches}</div></div>
+      \${stats.content.map(c => \`<div class="stat-card"><div class="stat-label">\${c.type}s</div><div class="stat-value">\${c.c}</div></div>\`).join('')}
+    \`;
+  } catch(e) { console.error(e); }
+}
+
+async function loadAdminContent() {
+  const items = await api('GET', '/admin/content');
+  const tbody = document.getElementById('content-tbody');
+  tbody.innerHTML = items.map(item => \`
+    <tr>
+      <td><strong>\${item.title}</strong><br><span style="font-size:12px;color:var(--text-muted);">/\${item.slug}</span></td>
+      <td>\${item.type}</td>
+      <td><span style="background:\${item.status==='published'?'rgba(74,222,128,0.15)':'rgba(255,255,255,0.05)'};color:\${item.status==='published'?'#4ade80':'var(--text-muted)'};padding:3px 10px;border-radius:12px;font-size:12px;">\${item.status}</span></td>
+      <td style="font-size:12px;">\${[item.is_new?'New':'',item.is_4k?'4K':'',item.is_hdr?'HDR':''].filter(Boolean).join(', ')||'-'}</td>
+      <td>\${item.featured ? '⭐' : '-'}</td>
+      <td>
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="editContent('\${item.id}')">Edit</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--accent);" onclick="deleteContent('\${item.id}')">Delete</button>
+      </td>
+    </tr>
+  \`).join('');
+}
+
+async function loadAdminEpisodes() {
+  const contents = await api('GET', '/admin/content');
+  const shows = contents.filter(c => c.type === 'show');
+  // Populate show select in episode modal
+  window._adminShows = shows;
+
+  const tbody = document.getElementById('episodes-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">Use "Add Episode" to add episodes to shows.</td></tr>';
+}
+
+async function loadAdminCollections() {
+  const cols = await api('GET', '/collections');
+  const container = document.getElementById('collections-admin-list');
+  if (!cols.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-title">No collections yet</div></div>';
+    return;
+  }
+  container.innerHTML = cols.map(col => \`
+    <div class="admin-card" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <strong>\${col.title}</strong>
+        <span style="color:var(--text-muted);font-size:13px;margin-left:12px;">/\${col.slug}</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="editCollection('\${col.id}')">Edit</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--accent);" onclick="deleteCollection('\${col.id}')">Delete</button>
+      </div>
+    </div>
+  \`).join('');
+}
+
+async function loadAdminUsers() {
+  const users = await api('GET', '/admin/users');
+  document.getElementById('users-tbody').innerHTML = users.map(u => \`
+    <tr>
+      <td><strong>\${u.username}</strong></td>
+      <td>\${u.email}</td>
+      <td><span style="background:\${u.role==='admin'?'rgba(232,38,58,0.15)':'rgba(255,255,255,0.05)'};color:\${u.role==='admin'?'var(--accent)':'var(--text-muted)'};padding:3px 10px;border-radius:12px;font-size:12px;">\${u.role}</span></td>
+      <td style="font-size:12px;">\${new Date(u.created_at * 1000).toLocaleDateString()}</td>
+      <td>
+        \${u.role !== 'admin' ? \`<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="promoteUser('\${u.id}')">Make Admin</button>\` : ''}
+      </td>
+    </tr>
+  \`).join('');
+}
+
+async function promoteUser(id) {
+  if (!confirm('Make this user an admin?')) return;
+  await api('PUT', \`/admin/users/\${id}\`, { role: 'admin' });
+  toast('User promoted to admin', 'success');
+  loadAdminUsers();
+}
+
+// ─── CONTENT FORM ─────────────────────────────────────────────────────────────
+function openContentModal(item = null) {
+  editingContentId = item?.id || null;
+  document.getElementById('content-modal-title').textContent = item ? 'Edit Content' : 'Add Content';
+  document.getElementById('content-modal').classList.add('open');
+
+  document.getElementById('content-form-body').innerHTML = \`
+    <div class="form-section-title">Basic Info</div>
+    <div class="form-group full">
+      <label class="form-label">Title *</label>
+      <input type="text" class="form-input" id="cf-title" value="\${item?.title||''}" placeholder="Title">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <select class="select-input" id="cf-type">
+        <option value="movie" \${item?.type==='movie'?'selected':''}>Movie</option>
+        <option value="show" \${item?.type==='show'?'selected':''}>TV Show</option>
+        <option value="short" \${item?.type==='short'?'selected':''}>Short</option>
+        <option value="documentary" \${item?.type==='documentary'?'selected':''}>Documentary</option>
+        <option value="event" \${item?.type==='event'?'selected':''}>Special Event</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="select-input" id="cf-status">
+        <option value="published" \${item?.status==='published'?'selected':''}>Published</option>
+        <option value="draft" \${item?.status==='draft'?'selected':''}>Draft</option>
+        <option value="scheduled" \${item?.status==='scheduled'?'selected':''}>Scheduled</option>
+        <option value="coming_soon" \${item?.status==='coming_soon'?'selected':''}>Coming Soon</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Slug (URL)</label>
+      <input type="text" class="form-input" id="cf-slug" value="\${item?.slug||''}" placeholder="auto-generated">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Scheduled Release</label>
+      <input type="datetime-local" class="form-input" id="cf-scheduled" value="\${item?.scheduled_release||''}">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Short Description</label>
+      <textarea class="textarea" id="cf-desc" placeholder="Short description...">\${item?.description||''}</textarea>
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Long Description</label>
+      <textarea class="textarea" id="cf-longdesc" placeholder="Full description..." style="min-height:120px;">\${item?.long_description||''}</textarea>
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Tagline</label>
+      <input type="text" class="form-input" id="cf-tagline" value="\${item?.tagline||''}" placeholder="Memorable tagline">
+    </div>
+
+    <div class="form-section-title">Media URLs</div>
+    <div class="form-group full">
+      <label class="form-label">Logo URL (transparent PNG/SVG)</label>
+      <input type="url" class="form-input" id="cf-logo" value="\${item?.logo_url||''}" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Poster URL (2:3)</label>
+      <input type="url" class="form-input" id="cf-poster" value="\${item?.poster_url||''}" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Backdrop URL (16:9)</label>
+      <input type="url" class="form-input" id="cf-backdrop" value="\${item?.backdrop_url||''}" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Trailer URL</label>
+      <input type="url" class="form-input" id="cf-trailer" value="\${item?.trailer_url||''}" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Teaser URL</label>
+      <input type="url" class="form-input" id="cf-teaser" value="\${item?.teaser_url||''}" placeholder="https://...">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Full Video URL</label>
+      <input type="url" class="form-input" id="cf-video" value="\${item?.video_url||''}" placeholder="https://...">
+    </div>
+
+    <div class="form-section-title">Details</div>
+    <div class="form-group">
+      <label class="form-label">Release Year</label>
+      <input type="number" class="form-input" id="cf-year" value="\${item?.release_year||''}" placeholder="2024">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Duration (minutes)</label>
+      <input type="number" class="form-input" id="cf-duration" value="\${item?.duration||''}" placeholder="120">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Rating (e.g. 8.5)</label>
+      <input type="text" class="form-input" id="cf-rating" value="\${item?.rating||''}" placeholder="8.5">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Age Rating</label>
+      <select class="select-input" id="cf-agerating">
+        <option value="">--</option>
+        \${['G','PG','PG-13','R','NC-17','TV-Y','TV-G','TV-PG','TV-14','TV-MA'].map(r => \`<option \${item?.age_rating===r?'selected':''}>\${r}</option>\`).join('')}
+      </select>
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Genres (comma-separated)</label>
+      <input type="text" class="form-input" id="cf-genres" value="\${(item?.genres||[]).join(', ')}" placeholder="Action, Drama, Thriller">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Cast (comma-separated names, or JSON array of {name,role})</label>
+      <input type="text" class="form-input" id="cf-cast" value="\${(item?.cast_members||[]).join(', ')}" placeholder="John Doe, Jane Smith">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Director/Crew (comma-separated)</label>
+      <input type="text" class="form-input" id="cf-crew" value="\${(item?.crew||[]).join(', ')}" placeholder="Steven Spielberg">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Tags (comma-separated)</label>
+      <input type="text" class="form-input" id="cf-tags" value="\${(item?.tags||[]).join(', ')}" placeholder="sci-fi, space, epic">
+    </div>
+
+    <div class="form-section-title">Labels & Badges</div>
+    <div class="form-group full">
+      <label class="form-label">Quick Labels</label>
+      <div class="badge-selector">
+        <div class="badge-toggle \${item?.is_new?'active':''}" onclick="this.classList.toggle('active')" id="badge-new">🆕 New</div>
+        <div class="badge-toggle \${item?.is_4k?'active':''}" onclick="this.classList.toggle('active')" id="badge-4k">4K UHD</div>
+        <div class="badge-toggle \${item?.is_hdr?'active':''}" onclick="this.classList.toggle('active')" id="badge-hdr">HDR</div>
+        <div class="badge-toggle \${item?.is_dolby?'active':''}" onclick="this.classList.toggle('active')" id="badge-dolby">Dolby</div>
+        <div class="badge-toggle \${item?.featured?'active':''}" onclick="this.classList.toggle('active')" id="badge-featured">⭐ Featured</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Featured Order</label>
+      <input type="number" class="form-input" id="cf-featorder" value="\${item?.featured_order||0}">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Custom Badges (comma-separated: event, featured)</label>
+      <input type="text" class="form-input" id="cf-badges" value="\${(item?.badges||[]).join(', ')}" placeholder="event, premiere">
+    </div>
+
+    <div class="form-section-title">Customization</div>
+    <div class="form-group">
+      <label class="form-label">Custom Title Font (Google Fonts name)</label>
+      <input type="text" class="form-input" id="cf-font" value="\${item?.custom_font||''}" placeholder="e.g. Oswald">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Custom Title Color</label>
+      <input type="color" class="form-input" id="cf-color" value="\${item?.custom_color||'#f0f0f8'}" style="height:44px;padding:4px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Play Button Icon</label>
+      <select class="select-input" id="cf-playicon">
+        <option value="" \${!item?.play_icon?'selected':''}>Default ▶</option>
+        <option value="fire" \${item?.play_icon==='fire'?'selected':''}>🔥 Fire</option>
+        <option value="star" \${item?.play_icon==='star'?'selected':''}>⭐ Star</option>
+        <option value="thunder" \${item?.play_icon==='thunder'?'selected':''}>⚡ Thunder</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Progress Bar Style</label>
+      <select class="select-input" id="cf-progress">
+        <option value="default">Default (Red)</option>
+        <option value="gold" \${item?.progress_bar_style==='gold'?'selected':''}>Gold</option>
+        <option value="blue" \${item?.progress_bar_style==='blue'?'selected':''}>Blue</option>
+        <option value="gradient" \${item?.progress_bar_style==='gradient'?'selected':''}>Gradient</option>
+      </select>
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Custom Tabs (JSON array: [{label:"Tab Name", content:"HTML content"}])</label>
+      <textarea class="textarea" id="cf-tabs" placeholder='[{"label":"Special Features","content":"<p>Bonus content here</p>"}]'>\${item?.custom_tabs ? JSON.stringify(item.custom_tabs, null, 2) : ''}</textarea>
+    </div>
+  \`;
+}
+
+async function saveContent() {
+  const title = document.getElementById('cf-title').value;
+  if (!title) { toast('Title is required', 'error'); return; }
+
+  const csv = (s) => s.split(',').map(x => x.trim()).filter(Boolean);
+  let customTabs = [];
+  try { customTabs = JSON.parse(document.getElementById('cf-tabs').value || '[]'); } catch {}
+
+  const data = {
+    type: document.getElementById('cf-type').value,
+    title,
+    slug: document.getElementById('cf-slug').value,
+    status: document.getElementById('cf-status').value,
+    description: document.getElementById('cf-desc').value,
+    long_description: document.getElementById('cf-longdesc').value,
+    tagline: document.getElementById('cf-tagline').value,
+    logo_url: document.getElementById('cf-logo').value,
+    poster_url: document.getElementById('cf-poster').value,
+    backdrop_url: document.getElementById('cf-backdrop').value,
+    trailer_url: document.getElementById('cf-trailer').value,
+    teaser_url: document.getElementById('cf-teaser').value,
+    video_url: document.getElementById('cf-video').value,
+    release_year: parseInt(document.getElementById('cf-year').value)||null,
+    duration: parseInt(document.getElementById('cf-duration').value)||0,
+    rating: document.getElementById('cf-rating').value,
+    age_rating: document.getElementById('cf-agerating').value,
+    scheduled_release: document.getElementById('cf-scheduled').value,
+    genres: csv(document.getElementById('cf-genres').value),
+    cast_members: csv(document.getElementById('cf-cast').value),
+    crew: csv(document.getElementById('cf-crew').value),
+    tags: csv(document.getElementById('cf-tags').value),
+    badges: csv(document.getElementById('cf-badges').value),
+    is_new: document.getElementById('badge-new').classList.contains('active'),
+    is_4k: document.getElementById('badge-4k').classList.contains('active'),
+    is_hdr: document.getElementById('badge-hdr').classList.contains('active'),
+    is_dolby: document.getElementById('badge-dolby').classList.contains('active'),
+    featured: document.getElementById('badge-featured').classList.contains('active'),
+    featured_order: parseInt(document.getElementById('cf-featorder').value)||0,
+    custom_font: document.getElementById('cf-font').value,
+    custom_color: document.getElementById('cf-color').value,
+    play_icon: document.getElementById('cf-playicon').value,
+    progress_bar_style: document.getElementById('cf-progress').value,
+    custom_tabs: customTabs,
+  };
+
+  try {
+    if (editingContentId) {
+      await api('PUT', \`/admin/content/\${editingContentId}\`, data);
+      toast('Content updated!', 'success');
+    } else {
+      await api('POST', '/admin/content', data);
+      toast('Content added!', 'success');
+    }
+    closeContentModal();
+    loadAdminContent();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function editContent(id) {
+  const items = await api('GET', '/admin/content');
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  openContentModal(item);
+}
+
+async function deleteContent(id) {
+  if (!confirm('Delete this content? This cannot be undone.')) return;
+  await api('DELETE', \`/admin/content/\${id}\`);
+  toast('Deleted', 'success');
+  loadAdminContent();
+}
+
+function closeContentModal() {
+  document.getElementById('content-modal').classList.remove('open');
+  editingContentId = null;
+}
+
+// ─── EPISODE FORM ─────────────────────────────────────────────────────────────
+async function openEpisodeModal() {
+  const shows = window._adminShows || [];
+  document.getElementById('episode-form-body').innerHTML = \`
+    <div class="form-group full">
+      <label class="form-label">Show *</label>
+      <select class="select-input" id="ef-show" onchange="loadSeasonOpts(this.value)">
+        <option value="">Select a show...</option>
+        \${shows.map(s => \`<option value="\${s.id}">\${s.title}</option>\`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Season</label>
+      <select class="select-input" id="ef-season"><option value="">Select show first</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Episode #</label>
+      <input type="number" class="form-input" id="ef-epnum" value="1" min="1">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Title *</label>
+      <input type="text" class="form-input" id="ef-title" placeholder="Episode title">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Description</label>
+      <textarea class="textarea" id="ef-desc" placeholder="Episode description"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Thumbnail URL</label>
+      <input type="url" class="form-input" id="ef-thumb" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Video URL</label>
+      <input type="url" class="form-input" id="ef-video" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Duration (minutes)</label>
+      <input type="number" class="form-input" id="ef-duration" placeholder="45">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="select-input" id="ef-status">
+        <option value="published">Published</option>
+        <option value="scheduled">Scheduled</option>
+        <option value="draft">Draft</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Scheduled Release</label>
+      <input type="datetime-local" class="form-input" id="ef-scheduled">
+    </div>
+  \`;
+  document.getElementById('episode-modal').classList.add('open');
+}
+
+async function loadSeasonOpts(showId) {
+  if (!showId) return;
+  // Load seasons for the show from admin content
+  const items = await api('GET', '/admin/content');
+  const show = items.find(i => i.id === showId);
+  // Load actual seasons
+  // For simplicity, offer option to create season
+  const seasonSel = document.getElementById('ef-season');
+  seasonSel.innerHTML = '<option value="">No season (use show ID)</option>';
+  // In a full impl, fetch seasons from API
+}
+
+async function saveEpisode() {
+  const data = {
+    content_id: document.getElementById('ef-show').value,
+    season_id: document.getElementById('ef-season').value || '',
+    episode_number: parseInt(document.getElementById('ef-epnum').value)||1,
+    title: document.getElementById('ef-title').value,
+    description: document.getElementById('ef-desc').value,
+    thumbnail_url: document.getElementById('ef-thumb').value,
+    video_url: document.getElementById('ef-video').value,
+    duration: (parseInt(document.getElementById('ef-duration').value)||0) * 60,
+    status: document.getElementById('ef-status').value,
+    scheduled_release: document.getElementById('ef-scheduled').value,
+  };
+  if (!data.content_id || !data.title) { toast('Show and title required', 'error'); return; }
+  try {
+    await api('POST', '/admin/episodes', data);
+    toast('Episode added!', 'success');
+    document.getElementById('episode-modal').classList.remove('open');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ─── COLLECTION FORM ─────────────────────────────────────────────────────────
+function openCollectionModal(col = null) {
+  editingCollectionId = col?.id || null;
+  document.getElementById('collection-modal-title').textContent = col ? 'Edit Collection' : 'New Collection';
+  document.getElementById('collection-form-body').innerHTML = \`
+    <div class="form-group full">
+      <label class="form-label">Title *</label>
+      <input type="text" class="form-input" id="col-title" value="\${col?.title||''}" placeholder="Collection name">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Slug</label>
+      <input type="text" class="form-input" id="col-slug" value="\${col?.slug||''}" placeholder="auto">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Display Order</label>
+      <input type="number" class="form-input" id="col-order" value="\${col?.display_order||0}">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Description</label>
+      <textarea class="textarea" id="col-desc" placeholder="Description...">\${col?.description||''}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Poster URL</label>
+      <input type="url" class="form-input" id="col-poster" value="\${col?.poster_url||''}" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Backdrop URL</label>
+      <input type="url" class="form-input" id="col-backdrop" value="\${col?.backdrop_url||''}" placeholder="https://...">
+    </div>
+    <div class="form-group full">
+      <label class="form-label">Status</label>
+      <select class="select-input" id="col-status">
+        <option value="published" \${col?.status==='published'?'selected':''}>Published</option>
+        <option value="draft" \${col?.status==='draft'?'selected':''}>Draft</option>
+      </select>
+    </div>
+  \`;
+  document.getElementById('collection-modal').classList.add('open');
+}
+
+async function saveCollection() {
+  const title = document.getElementById('col-title').value;
+  if (!title) { toast('Title required', 'error'); return; }
+  const data = {
+    title,
+    slug: document.getElementById('col-slug').value,
+    description: document.getElementById('col-desc').value,
+    poster_url: document.getElementById('col-poster').value,
+    backdrop_url: document.getElementById('col-backdrop').value,
+    display_order: parseInt(document.getElementById('col-order').value)||0,
+    status: document.getElementById('col-status').value,
+    content_ids: [],
+  };
+  try {
+    if (editingCollectionId) {
+      await api('PUT', \`/admin/collections/\${editingCollectionId}\`, data);
+    } else {
+      await api('POST', '/admin/collections', data);
+    }
+    toast('Collection saved!', 'success');
+    document.getElementById('collection-modal').classList.remove('open');
+    loadAdminCollections();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function editCollection(id) {
+  const cols = await api('GET', '/collections');
+  const col = cols.find(c => c.id === id);
+  if (col) openCollectionModal(col);
+}
+
+async function deleteCollection(id) {
+  if (!confirm('Delete this collection?')) return;
+  await api('DELETE', \`/admin/collections/\${id}\`);
+  toast('Deleted', 'success');
+  loadAdminCollections();
+}
+
+// ─── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
+`;
+
+export default {{
+  async fetch(request, env) {{
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // Serve frontend for all non-API routes
+    if (!path.startsWith('/api/')) {{
+      return new Response(HTML, {{
+        headers: {{ 'Content-Type': 'text/html; charset=utf-8' }}
+      }});
+    }}
+
+    const corsHeaders = {{
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    }};
+
+    if (request.method === 'OPTIONS') {{
+      return new Response(null, {{ headers: corsHeaders }});
+    }}
+
+    const respond = (data, status = 200) =>
+      new Response(JSON.stringify(data), {{
+        status,
+        headers: {{ 'Content-Type': 'application/json', ...corsHeaders }},
+      }});
+
+    const error = (msg, status = 400) => respond({{ error: msg }}, status);
+
+    const getSession = async (req) => {{
+      const auth = req.headers.get('Authorization') || '';
+      const token = auth.replace('Bearer ', '');
+      if (!token) return null;
+      const session = await env.DB.prepare(
+        'SELECT s.*, u.role, u.email, u.username FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > ?'
+      ).bind(token, Math.floor(Date.now() / 1000)).first();
+      return session;
+    }};
+
+    const requireAuth = async (req) => {{
+      const s = await getSession(req);
+      if (!s) throw new Error('Unauthorized');
+      return s;
+    }};
+
+    const requireAdmin = async (req) => {{
+      const s = await requireAuth(req);
+      if (s.role !== 'admin') throw new Error('Forbidden');
+      return s;
+    }};
+
+    const generateId = () => crypto.randomUUID();
+
+    try {{
+      // ── AUTH ──────────────────────────────────────────────
+      if (path === '/api/auth/signup' && request.method === 'POST') {{
+        const {{ email, password, username }} = await request.json();
+        if (!email || !password || !username) return error('Missing fields');
+        const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ? OR username = ?').bind(email, username).first();
+        if (exists) return error('Email or username already taken');
+        const hash = await hashPassword(password);
+        const id = generateId();
+        await env.DB.prepare('INSERT INTO users (id, email, password_hash, username, role) VALUES (?, ?, ?, ?, ?)').bind(id, email, hash, username, 'user').run();
+        const profileId = generateId();
+        await env.DB.prepare('INSERT INTO profiles (id, user_id, name) VALUES (?, ?, ?)').bind(profileId, id, username).run();
+        const token = generateId();
+        const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+        await env.DB.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').bind(token, id, expires).run();
+        return respond({{ token, userId: id, username, role: 'user' }});
+      }}
+
+      if (path === '/api/auth/login' && request.method === 'POST') {{
+        const {{ email, password }} = await request.json();
+        const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+        if (!user) return error('Invalid credentials', 401);
+        const valid = await verifyPassword(password, user.password_hash);
+        if (!valid) return error('Invalid credentials', 401);
+        const token = generateId();
+        const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+        await env.DB.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').bind(token, user.id, expires).run();
+        return respond({{ token, userId: user.id, username: user.username, role: user.role }});
+      }}
+
+      if (path === '/api/auth/logout' && request.method === 'POST') {{
+        const auth = request.headers.get('Authorization') || '';
+        const token = auth.replace('Bearer ', '');
+        await env.DB.prepare('DELETE FROM sessions WHERE id = ?').bind(token).run();
+        return respond({{ success: true }});
+      }}
+
+      if (path === '/api/auth/me' && request.method === 'GET') {{
+        const session = await getSession(request);
+        if (!session) return error('Unauthorized', 401);
+        return respond({{ userId: session.user_id, username: session.username, email: session.email, role: session.role }});
+      }}
+
+      // ── PROFILES ──────────────────────────────────────────
+      if (path === '/api/profiles' && request.method === 'GET') {{
+        const session = await requireAuth(request);
+        const profiles = await env.DB.prepare('SELECT * FROM profiles WHERE user_id = ?').bind(session.user_id).all();
+        return respond(profiles.results);
+      }}
+
+      if (path === '/api/profiles' && request.method === 'POST') {{
+        const session = await requireAuth(request);
+        const {{ name, avatar, pin, kids_mode }} = await request.json();
+        const existing = await env.DB.prepare('SELECT COUNT(*) as c FROM profiles WHERE user_id = ?').bind(session.user_id).first();
+        if (existing.c >= 5) return error('Max 5 profiles');
+        const id = generateId();
+        await env.DB.prepare('INSERT INTO profiles (id, user_id, name, avatar, pin, kids_mode) VALUES (?, ?, ?, ?, ?, ?)').bind(id, session.user_id, name, avatar || '', pin || '', kids_mode ? 1 : 0).run();
+        return respond({{ id, name, avatar, kids_mode }});
+      }}
+
+      if (path.startsWith('/api/profiles/') && path.split('/').length === 4 && request.method === 'PUT') {{
+        const session = await requireAuth(request);
+        const profileId = path.split('/')[3];
+        const {{ name, avatar, pin, kids_mode }} = await request.json();
+        await env.DB.prepare('UPDATE profiles SET name=?, avatar=?, pin=?, kids_mode=? WHERE id=? AND user_id=?').bind(name, avatar, pin || '', kids_mode ? 1 : 0, profileId, session.user_id).run();
+        return respond({{ success: true }});
+      }}
+
+      if (path.startsWith('/api/profiles/') && request.method === 'DELETE') {{
+        const session = await requireAuth(request);
+        const profileId = path.split('/')[3];
+        await env.DB.prepare('DELETE FROM profiles WHERE id=? AND user_id=?').bind(profileId, session.user_id).run();
+        return respond({{ success: true }});
+      }}
+
+      // ── CONTENT (Public) ──────────────────────────────────
+      if (path === '/api/content' && request.method === 'GET') {{
+        const type = url.searchParams.get('type');
+        const featured = url.searchParams.get('featured');
+        const limit = parseInt(url.searchParams.get('limit') || '50');
+        const offset = parseInt(url.searchParams.get('offset') || '0');
+        let query = "SELECT * FROM content WHERE status='published'";
+        const params = [];
+        if (type) {{ query += " AND type=?"; params.push(type); }}
+        if (featured === '1') {{ query += " AND featured=1 ORDER BY featured_order ASC"; }}
+        else {{ query += " ORDER BY created_at DESC"; }}
+        query += " LIMIT " + limit + " OFFSET " + offset;
+        const stmt = env.DB.prepare(query);
+        const results = params.length ? await stmt.bind(...params).all() : await stmt.all();
+        return respond(results.results.map(parseContent));
+      }}
+
+      if (path.startsWith('/api/content/') && path.split('/').length === 4 && request.method === 'GET') {{
+        const slug = path.split('/')[3];
+        const content = await env.DB.prepare("SELECT * FROM content WHERE slug=? AND status='published'").bind(slug).first();
+        if (!content) return error('Not found', 404);
+        const parsed = parseContent(content);
+        if (content.type === 'show') {{
+          const seasons = await env.DB.prepare('SELECT * FROM seasons WHERE content_id=? ORDER BY season_number').bind(content.id).all();
+          const episodes = await env.DB.prepare("SELECT * FROM episodes WHERE content_id=? AND status='published' ORDER BY season_id, episode_number").bind(content.id).all();
+          parsed.seasons = seasons.results;
+          parsed.episodes = episodes.results;
+        }}
+        return respond(parsed);
+      }}
+
+      // ── SEARCH ────────────────────────────────────────────
+      if (path === '/api/search' && request.method === 'GET') {{
+        const q = url.searchParams.get('q') || '';
+        if (!q) return respond([]);
+        const results = await env.DB.prepare(
+          "SELECT * FROM content WHERE status='published' AND (title LIKE ? OR description LIKE ? OR tags LIKE ?) LIMIT 20"
+        ).bind('%'+q+'%', '%'+q+'%', '%'+q+'%').all();
+        return respond(results.results.map(parseContent));
+      }}
+
+      // ── COLLECTIONS ───────────────────────────────────────
+      if (path === '/api/collections' && request.method === 'GET') {{
+        const collections = await env.DB.prepare("SELECT * FROM collections WHERE status='published' ORDER BY display_order").all();
+        return respond(collections.results);
+      }}
+
+      if (path.startsWith('/api/collections/') && request.method === 'GET') {{
+        const slug = path.split('/')[3];
+        const col = await env.DB.prepare("SELECT * FROM collections WHERE slug=?").bind(slug).first();
+        if (!col) return error('Not found', 404);
+        const ids = tryParse(col.content_ids, []);
+        let items = [];
+        if (ids.length) {{
+          const placeholders = ids.map(() => '?').join(',');
+          const results = await env.DB.prepare("SELECT * FROM content WHERE id IN ("+placeholders+") AND status='published'").bind(...ids).all();
+          items = results.results.map(parseContent);
+        }}
+        return respond({{ ...col, items }});
+      }}
+
+      // ── WATCHLIST ─────────────────────────────────────────
+      if (path === '/api/watchlist' && request.method === 'GET') {{
+        await requireAuth(request);
+        const profileId = url.searchParams.get('profile_id');
+        const items = await env.DB.prepare(
+          'SELECT w.*, c.title, c.slug, c.type, c.poster_url, c.backdrop_url, c.genres, c.rating FROM watchlist w JOIN content c ON w.content_id = c.id WHERE w.profile_id=? ORDER BY w.added_at DESC'
+        ).bind(profileId).all();
+        return respond(items.results);
+      }}
+
+      if (path === '/api/watchlist' && request.method === 'POST') {{
+        await requireAuth(request);
+        const {{ profile_id, content_id }} = await request.json();
+        const id = generateId();
+        await env.DB.prepare('INSERT OR IGNORE INTO watchlist (id, profile_id, content_id) VALUES (?, ?, ?)').bind(id, profile_id, content_id).run();
+        return respond({{ success: true }});
+      }}
+
+      if (path.startsWith('/api/watchlist/') && request.method === 'DELETE') {{
+        await requireAuth(request);
+        const id = path.split('/')[3];
+        await env.DB.prepare('DELETE FROM watchlist WHERE id=?').bind(id).run();
+        return respond({{ success: true }});
+      }}
+
+      // ── WATCH HISTORY ─────────────────────────────────────
+      if (path === '/api/history' && request.method === 'POST') {{
+        await requireAuth(request);
+        const {{ profile_id, content_id, episode_id, progress, duration }} = await request.json();
+        const existing = await env.DB.prepare('SELECT id FROM watch_history WHERE profile_id=? AND content_id=? AND episode_id=?').bind(profile_id, content_id, episode_id || '').first();
+        if (existing) {{
+          await env.DB.prepare('UPDATE watch_history SET progress=?, watched_at=? WHERE id=?').bind(progress, Math.floor(Date.now() / 1000), existing.id).run();
+        }} else {{
+          await env.DB.prepare('INSERT INTO watch_history (id, profile_id, content_id, episode_id, progress, duration) VALUES (?,?,?,?,?,?)').bind(generateId(), profile_id, content_id, episode_id || '', progress, duration).run();
+        }}
+        return respond({{ success: true }});
+      }}
+
+      // ── ADMIN ─────────────────────────────────────────────
+      if (path.startsWith('/api/admin')) {{
+        await requireAdmin(request);
+
+        if (path === '/api/admin/content' && request.method === 'GET') {{
+          const all = await env.DB.prepare('SELECT * FROM content ORDER BY created_at DESC').all();
+          return respond(all.results.map(parseContent));
+        }}
+
+        if (path === '/api/admin/content' && request.method === 'POST') {{
+          const data = await request.json();
+          const id = data.id || generateId();
+          const slug = data.slug || slugify(data.title);
+          await env.DB.prepare(`INSERT INTO content (
+            id, type, title, slug, description, long_description, tagline,
+            logo_url, poster_url, backdrop_url, trailer_url, teaser_url, video_url,
+            duration, release_year, release_date, scheduled_release, rating,
+            genres, cast_members, crew, tags, badges, custom_font, custom_color,
+            play_icon, progress_bar_style, custom_tabs, collection_id,
+            season_count, episode_count, status, featured, featured_order,
+            is_new, is_4k, is_hdr, is_dolby, age_rating, country, language
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          `).bind(
+            id, data.type, data.title, slug,
+            data.description||'', data.long_description||'', data.tagline||'',
+            data.logo_url||'', data.poster_url||'', data.backdrop_url||'',
+            data.trailer_url||'', data.teaser_url||'', data.video_url||'',
+            data.duration||0, data.release_year||null, data.release_date||'',
+            data.scheduled_release||'', data.rating||'',
+            JSON.stringify(data.genres||[]), JSON.stringify(data.cast_members||[]),
+            JSON.stringify(data.crew||[]), JSON.stringify(data.tags||[]),
+            JSON.stringify(data.badges||[]),
+            data.custom_font||'', data.custom_color||'',
+            data.play_icon||'', data.progress_bar_style||'default',
+            JSON.stringify(data.custom_tabs||[]), data.collection_id||'',
+            data.season_count||0, data.episode_count||0,
+            data.status||'published', data.featured?1:0, data.featured_order||0,
+            data.is_new?1:0, data.is_4k?1:0, data.is_hdr?1:0, data.is_dolby?1:0,
+            data.age_rating||'', data.country||'', data.language||'en'
+          ).run();
+          return respond({{ id, slug }});
+        }}
+
+        if (path.startsWith('/api/admin/content/') && request.method === 'PUT') {{
+          const id = path.split('/')[4];
+          const data = await request.json();
+          await env.DB.prepare(`UPDATE content SET
+            type=?, title=?, slug=?, description=?, long_description=?, tagline=?,
+            logo_url=?, poster_url=?, backdrop_url=?, trailer_url=?, teaser_url=?, video_url=?,
+            duration=?, release_year=?, release_date=?, scheduled_release=?, rating=?,
+            genres=?, cast_members=?, crew=?, tags=?, badges=?, custom_font=?, custom_color=?,
+            play_icon=?, progress_bar_style=?, custom_tabs=?, collection_id=?,
+            season_count=?, episode_count=?, status=?, featured=?, featured_order=?,
+            is_new=?, is_4k=?, is_hdr=?, is_dolby=?, age_rating=?, country=?, language=?,
+            updated_at=strftime('%s','now') WHERE id=?
+          `).bind(
+            data.type, data.title, data.slug||slugify(data.title),
+            data.description||'', data.long_description||'', data.tagline||'',
+            data.logo_url||'', data.poster_url||'', data.backdrop_url||'',
+            data.trailer_url||'', data.teaser_url||'', data.video_url||'',
+            data.duration||0, data.release_year||null, data.release_date||'',
+            data.scheduled_release||'', data.rating||'',
+            JSON.stringify(data.genres||[]), JSON.stringify(data.cast_members||[]),
+            JSON.stringify(data.crew||[]), JSON.stringify(data.tags||[]),
+            JSON.stringify(data.badges||[]),
+            data.custom_font||'', data.custom_color||'',
+            data.play_icon||'', data.progress_bar_style||'default',
+            JSON.stringify(data.custom_tabs||[]), data.collection_id||'',
+            data.season_count||0, data.episode_count||0,
+            data.status||'published', data.featured?1:0, data.featured_order||0,
+            data.is_new?1:0, data.is_4k?1:0, data.is_hdr?1:0, data.is_dolby?1:0,
+            data.age_rating||'', data.country||'', data.language||'en',
+            id
+          ).run();
+          return respond({{ success: true }});
+        }}
+
+        if (path.startsWith('/api/admin/content/') && request.method === 'DELETE') {{
+          const id = path.split('/')[4];
+          await env.DB.prepare('DELETE FROM content WHERE id=?').bind(id).run();
+          return respond({{ success: true }});
+        }}
+
+        if (path === '/api/admin/episodes' && request.method === 'POST') {{
+          const data = await request.json();
+          const id = generateId();
+          await env.DB.prepare('INSERT INTO episodes (id, content_id, season_id, episode_number, title, description, thumbnail_url, video_url, duration, release_date, scheduled_release, status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(
+            id, data.content_id, data.season_id||'', data.episode_number, data.title,
+            data.description||'', data.thumbnail_url||'', data.video_url||'',
+            data.duration||0, data.release_date||'', data.scheduled_release||'',
+            data.status||'published'
+          ).run();
+          return respond({{ id }});
+        }}
+
+        if (path.startsWith('/api/admin/episodes/') && request.method === 'PUT') {{
+          const id = path.split('/')[4];
+          const data = await request.json();
+          await env.DB.prepare('UPDATE episodes SET title=?, description=?, thumbnail_url=?, video_url=?, duration=?, release_date=?, scheduled_release=?, status=?, episode_number=? WHERE id=?').bind(
+            data.title, data.description||'', data.thumbnail_url||'', data.video_url||'',
+            data.duration||0, data.release_date||'', data.scheduled_release||'',
+            data.status||'published', data.episode_number, id
+          ).run();
+          return respond({{ success: true }});
+        }}
+
+        if (path.startsWith('/api/admin/episodes/') && request.method === 'DELETE') {{
+          const id = path.split('/')[4];
+          await env.DB.prepare('DELETE FROM episodes WHERE id=?').bind(id).run();
+          return respond({{ success: true }});
+        }}
+
+        if (path === '/api/admin/seasons' && request.method === 'POST') {{
+          const data = await request.json();
+          const id = generateId();
+          await env.DB.prepare('INSERT INTO seasons (id, content_id, season_number, title, poster_url, description, release_year) VALUES (?,?,?,?,?,?,?)').bind(
+            id, data.content_id, data.season_number, data.title||'', data.poster_url||'', data.description||'', data.release_year||null
+          ).run();
+          return respond({{ id }});
+        }}
+
+        if (path === '/api/admin/seasons' && request.method === 'GET') {{
+          const contentId = url.searchParams.get('content_id');
+          if (!contentId) return error('content_id required');
+          const seasons = await env.DB.prepare('SELECT * FROM seasons WHERE content_id=? ORDER BY season_number').bind(contentId).all();
+          return respond(seasons.results);
+        }}
+
+        if (path === '/api/admin/episodes' && request.method === 'GET') {{
+          const contentId = url.searchParams.get('content_id');
+          if (contentId) {{
+            const episodes = await env.DB.prepare('SELECT * FROM episodes WHERE content_id=? ORDER BY season_id, episode_number').bind(contentId).all();
+            return respond(episodes.results);
+          }}
+          const all = await env.DB.prepare('SELECT e.*, c.title as show_title FROM episodes e LEFT JOIN content c ON e.content_id = c.id ORDER BY e.content_id, e.episode_number').all();
+          return respond(all.results);
+        }}
+
+        if (path === '/api/admin/collections' && request.method === 'GET') {{
+          const all = await env.DB.prepare('SELECT * FROM collections ORDER BY display_order').all();
+          return respond(all.results);
+        }}
+
+        if (path === '/api/admin/collections' && request.method === 'POST') {{
+          const data = await request.json();
+          const id = generateId();
+          const slug = data.slug || slugify(data.title);
+          await env.DB.prepare('INSERT INTO collections (id, title, slug, description, poster_url, backdrop_url, content_ids, display_order, status) VALUES (?,?,?,?,?,?,?,?,?)').bind(
+            id, data.title, slug, data.description||'', data.poster_url||'', data.backdrop_url||'',
+            JSON.stringify(data.content_ids||[]), data.display_order||0, data.status||'published'
+          ).run();
+          return respond({{ id, slug }});
+        }}
+
+        if (path.startsWith('/api/admin/collections/') && request.method === 'PUT') {{
+          const id = path.split('/')[4];
+          const data = await request.json();
+          await env.DB.prepare('UPDATE collections SET title=?, slug=?, description=?, poster_url=?, backdrop_url=?, content_ids=?, display_order=?, status=? WHERE id=?').bind(
+            data.title, data.slug||slugify(data.title), data.description||'', data.poster_url||'',
+            data.backdrop_url||'', JSON.stringify(data.content_ids||[]), data.display_order||0, data.status||'published', id
+          ).run();
+          return respond({{ success: true }});
+        }}
+
+        if (path.startsWith('/api/admin/collections/') && request.method === 'DELETE') {{
+          const id = path.split('/')[4];
+          await env.DB.prepare('DELETE FROM collections WHERE id=?').bind(id).run();
+          return respond({{ success: true }});
+        }}
+
+        if (path === '/api/admin/users' && request.method === 'GET') {{
+          const users = await env.DB.prepare('SELECT id, email, username, role, created_at, subscription FROM users ORDER BY created_at DESC').all();
+          return respond(users.results);
+        }}
+
+        if (path.startsWith('/api/admin/users/') && request.method === 'PUT') {{
+          const id = path.split('/')[4];
+          const {{ role }} = await request.json();
+          await env.DB.prepare('UPDATE users SET role=? WHERE id=?').bind(role, id).run();
+          return respond({{ success: true }});
+        }}
+
+        if (path === '/api/admin/stats' && request.method === 'GET') {{
+          const [users, content, watchlist, history] = await Promise.all([
+            env.DB.prepare('SELECT COUNT(*) as c FROM users').first(),
+            env.DB.prepare('SELECT COUNT(*) as c, type FROM content GROUP BY type').all(),
+            env.DB.prepare('SELECT COUNT(*) as c FROM watchlist').first(),
+            env.DB.prepare('SELECT COUNT(*) as c FROM watch_history').first(),
+          ]);
+          return respond({{ users: users.c, content: content.results, watchlist: watchlist.c, watches: history.c }});
+        }}
+      }}
+
+      return error('Not found', 404);
+    }} catch (err) {{
+      if (err.message === 'Unauthorized') return error('Unauthorized', 401);
+      if (err.message === 'Forbidden') return error('Forbidden', 403);
+      console.error(err);
+      return error('Internal server error: ' + err.message, 500);
+    }}
+  }}
+}};
+
+function slugify(str) {{
+  return (str||'').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}}
+
+function parseContent(c) {{
+  return {{
+    ...c,
+    genres: tryParse(c.genres, []),
+    cast_members: tryParse(c.cast_members, []),
+    crew: tryParse(c.crew, []),
+    tags: tryParse(c.tags, []),
+    badges: tryParse(c.badges, []),
+    custom_tabs: tryParse(c.custom_tabs, []),
+  }};
+}}
+
+function tryParse(str, fallback) {{
+  try {{ return JSON.parse(str); }} catch {{ return fallback; }}
+}}
+
+async function hashPassword(password) {{
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(hash)));
+}}
+
+async function verifyPassword(password, hash) {{
+  const computed = await hashPassword(password);
+  return computed === hash;
+}}

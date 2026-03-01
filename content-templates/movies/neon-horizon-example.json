@@ -1,0 +1,61 @@
+{
+  "type": "movie",
+  "title": "NEON HORIZON",
+  "slug": "neon-horizon",
+  "status": "published",
+
+  "description": "A cyberpunk heist thriller set in 2089. One crew. One shot. The future is theirs to steal.",
+  "long_description": "In the sprawling megacity of New Meridian, a rogue AI known only as NEON has gone dark — taking with it the identities of 12 million citizens. Former soldier Zara Vex assembles the most unlikely crew in the city's underworld to pull off the impossible: infiltrate the city's central neural hub and bring NEON back online before the clock runs out. What follows is 128 minutes of high-octane action, mind-bending twists, and a visceral exploration of what it means to be human in a world run by machines.",
+  "tagline": "In the dark, only the neon survives.",
+
+  "logo_url": "https://your-cdn.com/logos/neon-horizon-logo.png",
+  "poster_url": "https://your-cdn.com/posters/neon-horizon.jpg",
+  "backdrop_url": "https://your-cdn.com/backdrops/neon-horizon-wide.jpg",
+  "trailer_url": "https://your-cdn.com/videos/neon-horizon-trailer.mp4",
+  "teaser_url": "https://your-cdn.com/videos/neon-horizon-teaser.mp4",
+  "video_url": "https://your-cdn.com/videos/neon-horizon-full.mp4",
+
+  "release_year": 2024,
+  "release_date": "2024-10-15",
+  "scheduled_release": "",
+  "duration": 128,
+  "rating": "9.1",
+  "age_rating": "R",
+  "country": "USA",
+  "language": "en",
+
+  "genres": ["Sci-Fi", "Thriller", "Action"],
+  "cast_members": [
+    "Jordan Reeves",
+    "Mia Tanaka",
+    "Carlos Mendes",
+    "Sofía García"
+  ],
+  "crew": ["Alex Harmon"],
+  "tags": ["cyberpunk", "heist", "AI", "future", "must-watch", "action"],
+
+  "is_new": true,
+  "is_4k": true,
+  "is_hdr": true,
+  "is_dolby": true,
+  "featured": true,
+  "featured_order": 1,
+
+  "badges": ["featured"],
+
+  "custom_font": "Orbitron",
+  "custom_color": "#00f5ff",
+  "play_icon": "thunder",
+  "progress_bar_style": "blue",
+
+  "custom_tabs": [
+    {
+      "label": "Behind the Scenes",
+      "content": "<p>Go inside the world of NEON HORIZON with exclusive behind-the-scenes footage from the production team. Over 400 visual effects shots were created entirely in-house.</p>"
+    },
+    {
+      "label": "Soundtrack",
+      "content": "<p>The original score by <strong>Luna Vex</strong> blends analog synths with orchestral strings for a sound unlike anything in cinema today.</p><p>Available now on all streaming platforms.</p>"
+    }
+  ]
+}
